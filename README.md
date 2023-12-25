@@ -1,2 +1,2 @@
-# QualityPricing
-Master's thesis on the effect of pricing schemes on health care quality.
+# Price regulation and health care quality: evidence from the hemodialysis market in Uruguay
+Hemodialysis treatments in Uruguay are publicly funded and represent an annual expense equivalent to the annual subsidy of all high-cost medications. However, there is a fair amount of variation in the quality provided by the different hemodialysis facilities. In this project, I aim to estimate patients' preference for quality, as well as facilities' marginal cost of quality, to understand the nature of competition in this market. In a second step, I propose to simulate the effects of a quality-based pricing policy.
