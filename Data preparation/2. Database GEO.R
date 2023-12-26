@@ -53,9 +53,27 @@ dist <- distm(pacientes_sesiones_Google[c("long_Google", "lat_Google")],
 # The default unit of distance is meter
 # distGeo: Distance on an ellipsoid (the geodesic)
 
-colnames(dist) <- as.vector(IMAES$IMA_DESC)
+#colnames(dist) <- as.vector(IMAES$IMA_DESC)
 
-pacientes_sesiones_dist <- cbind(pacientes_sesiones_Google, dist)
+GEO <- cbind(pacientes_sesiones_Google, dist)
 
-write.csv(pacientes_sesiones_dist, 
+# Get the names of the variables
+variable_names <- names(GEO)
+
+# Get the index of the last 41 variables
+last_41_indices <- (length(variable_names) - 40):length(variable_names)
+
+# Add the prefix "dist" to the names of the last 41 variables
+new_names <- paste0("dist", variable_names[last_41_indices])
+
+# Rename the variables in the dataset
+names(GEO)[last_41_indices] <- new_names
+
+IMAE_num <- matrix(c(as.vector(IMAES$IMA_DESC), 1:41), ncol=2) %>% as.data.frame()
+colnames(IMAE_num) <- c("ZCAIMAE", "choice")
+
+write.csv(GEO, 
           "GEO.csv", row.names=F)
+
+write.csv(IMAE_num, 
+          "IMAE_num.csv", row.names=F)
