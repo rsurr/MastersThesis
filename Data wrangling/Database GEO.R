@@ -16,9 +16,6 @@ write.csv(pacientes_sesiones,
           "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/pacientes_sesiones_ArcGIS.csv", row.names=F)
 
 # Google
-GOOGLEGEOCODE_API_KEY <- "AIzaSyBOJ5WQBZbgwk8cS0Dw25H496F8NgB-GSw"
-print(Sys.setenv(GOOGLEGEOCODE_API_KEY="AIzaSyBOJ5WQBZbgwk8cS0Dw25H496F8NgB-GSw"))
-
 pacientes_sesionesGoogle <- PACIENTES %>% filter(CAPACNUM %in% SESIONES_HD$CAPACNUM) %>% 
   mutate(dir=result <- paste(PAC_TV_DESC, " ", PAC_DIRECCION, " ", PAC_NPTA, ", ", PAC_LOCALIDAD, ", ", PAC_LOC_DESC, 
                              ", ", PAC_DEP_DESC, ", ", "URUGUAY")) %>%
@@ -62,5 +59,3 @@ pacientes_sesiones_dist <- cbind(pacientes_sesiones_Google, dist)
 
 write.csv(pacientes_sesiones_dist, 
           "GEO.csv", row.names=F)
-
-
