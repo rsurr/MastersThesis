@@ -162,3 +162,4 @@ INGRESOS_HD <- PACIENTES_MEDICOS %>% select(CAPACNUM, med_imae) %>%
 write.csv(INGRESOS_HD, 
           "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/INGRESOS_HD2.csv", 
           row.names=FALSE)
+
