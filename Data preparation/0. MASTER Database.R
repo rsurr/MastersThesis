@@ -1,6 +1,7 @@
 library(readr)
 library(mlogit)
 library(dplyr)
+library(peakRAM)
 
 source("1. Database INGRESOS_HD.R")
 source("2. Database GEO.R")
@@ -64,3 +65,20 @@ model <- mlogit(choice ~ dist,
 
 summary(model)
 
+
+#--------------------- Muestra
+
+DATA1m <- left_join(INGRESOS_HD2, GEO, by=c("CAPACNUM")) %>% 
+  left_join(IMAE_num, by="ZCAIMAE") %>% 
+  filter(tiene_imae==1) %>% head(n=500)
+
+mlogit1m <- dfidx(DATA1m, idx="CAPACNUM", choice="choice", 
+                  varying=grep('^dist|^medimae|^inst', names(DATA)), sep="")
+
+
+peakRAM({
+  model1m <- mlogit(choice ~ dist + medimae + inst | 
+                     CASEDADA + CASEXO + ZCASINST +
+                     ZCASDEPAR + ZB1SRAZA + ZB1SOCUP0 + B1SNIVEL, 
+                   data = mlogit1m)
+})
