@@ -110,14 +110,15 @@ SESIONES_HD <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Datab
 
 SESIONES_HD <-  SESIONES_HD %>% 
   unite("fecha", PMD_ANIO:PMD_MES, sep="-", remove=FALSE) %>% 
-  mutate(Date = as.Date(paste(fecha, "-01", sep="")),
+  mutate(Date = as.Date(paste(fecha, "-01", sep="")))
 
 IMAE_num <- read_csv("IMAE_num.csv")
 
 MEDICOS <- SESIONES_HD %>%
   left_join(IMAE_num, by=c("ZPMD_IMAE"="ZCAIMAE")) %>% 
   rename(medimae=choice) %>% 
-  group_by(ZB1RMEDICO, medimae, PMD_ANIO) %>%
+  filter(depto=="01") %>%
+  group_by(ZB1RMEDICO, medimae, PMD_ANIO) %>% 
   summarise(n=n()) %>%
   mutate(medimae=ifelse(medimae=="", NA, medimae),
          ZB1RMEDICO=ifelse(ZB1RMEDICO=="" |
@@ -128,9 +129,8 @@ MEDICOS <- SESIONES_HD %>%
   group_by(medimae, PMD_ANIO) %>% 
   dummy_cols(select_columns = "medimae") %>% 
   group_by(ZB1RMEDICO, PMD_ANIO) %>% 
-  summarise_at(vars(starts_with("medimae")), funs(.= max(.))) %>% 
-  mutate(medimae41 = NA) # SANATORIO AMERICANO NO ESTÁ EN SESIONES_HD
-  
+  summarise_at(vars(starts_with("medimae")), funs(.= max(.)))
+
 names(MEDICOS) <- gsub("[._]", "", names(MEDICOS))  # Remove "_" and "."
 
 a <- 
@@ -146,41 +146,44 @@ colnames(a) <- c("ZCAIMAE", "ZCAINST")
 
 imae_inst <- a %>% left_join(IMAE_num, by="ZCAIMAE")
 
-colnames(imae_inst) <- c("ZCAIMAE", "ZCASINST", "inst")
+colnames(imae_inst) <- c("ZCAIMAE", "ZCASINST", "inst", "depto")
 
 INST <- 
   left_join(INGRESOS_HD, imae_inst, by="ZCASINST",
             relationship="many-to-many") %>% #WARNING
+  filter(depto=="01") %>% 
   dummy_cols(select_columns = "inst") %>% 
   group_by(CAPACNUM) %>% 
   summarise_at(vars(starts_with("inst")), funs(.= max(.))) %>% 
-  mutate(inst2=0, inst3=0, inst4=0, inst5=0, inst6=0, inst7=0, inst8=0, inst9=0,
-         inst10=0, inst11=0, inst12=0, 
-         inst14=0,
-         inst16=0, inst17=0,
-         inst19=0, inst20=0, inst21=0,
-         inst24=0, inst25=0, inst26=0,
-         inst28=0, inst29=0,
-         inst31=0, inst32=0,
-         inst28=0, inst29=0,
-         inst34=0, inst35=0, inst36=0, inst37=0, inst38=0, inst39=0,
-         inst41=0) %>% 
+  mutate(inst2=0, 
+         #inst3=0, inst4=0, inst5=0, inst6=0, 
+         inst7=0, 
+         #inst8=0, 
+         inst9=0,
+         #inst10=0, inst11=0, 
+         inst12=0, 
+         inst14=0,inst16=0, inst17=0, inst19=0, inst20=0, inst21=0, inst24=0, 
+         #inst25=0, inst26=0, inst28=0, inst29=0, inst31=0, inst32=0,
+         inst34=0, inst35=0, 
+         #inst36=0, inst37=0, inst38=0, inst39=0,inst41=0
+         ) %>% 
   mutate_at(vars(starts_with("inst")), ~replace(., is.na(.), 0))
 
 names(INST) <- gsub("[._]", "", names(INST))  # Remove "_" and "."
 
-INGRESOS_HD2 <- left_join(INGRESOS_HD, MEDICOS, by=c("ZB1SMEDIC"="ZB1RMEDICO",
-                                                     "anio_solicitud"="PMDANIO")) %>%
+INGRESOS_HD2 <- left_join(INGRESOS_HD, MEDICOS, 
+                          by=c("ZB1SMEDIC"="ZB1RMEDICO",
+                               "anio_solicitud"="PMDANIO")) %>%
   group_by(CAPACNUM) %>% 
   slice_max(CASEDADA, with_ties = FALSE) %>% 
-  select(c(ZCAIMAE, CAPACNUM, starts_with("medimae"), CASEDADA, CASEXO, ZCASINST, ZCASDEPAR,
-           CAFECSOL, ZB1SMEDIC, ZB1SRAZA, ZB1SOCUP0, B1SNIVEL,
-           starts_with("inst"), CAPACNUM, ZCASINST, anio_solicitud, 
-           starts_with("medimae"), tiene_imae)) %>% 
-  left_join(INST, by = join_by(CAPACNUM)) %>% 
-  select(-c("medimae", "instNA", "inst", "instimae", "inst_imae")) 
-
-INGRESOS_HD2 <- INGRESOS_HD2[ , order(names(INGRESOS_HD2))]
+  left_join(INST, by = join_by(CAPACNUM)) %>%
+  select(c(ZCAIMAE, CAPACNUM, 
+           num_range("medimae", range = 1:41), 
+           num_range("inst", range = 1:41),
+           CASEDADA, CASEXO, ZCASINST, ZCASDEPAR,
+           CAFECSOL, ZB1SMEDIC, ZB1SRAZA, ZB1SOCUP0, SCEFPE, SCEFTA,
+           B1SNIVEL, CAPACNUM, ZCASINST, anio_solicitud, tiene_imae)) %>% 
+  mutate(anio_solicitud=as.factor(anio_solicitud))
 
 write.csv(INGRESOS_HD2, 
           "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/INGRESOS_HD2.csv", 

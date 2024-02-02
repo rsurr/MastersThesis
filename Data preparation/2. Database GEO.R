@@ -69,8 +69,8 @@ new_names <- paste0("dist", variable_names[last_41_indices])
 # Rename the variables in the dataset
 names(GEO)[last_41_indices] <- new_names
 
-IMAE_num <- matrix(c(as.vector(IMAES$IMA_DESC), 1:41), ncol=2) %>% as.data.frame()
-colnames(IMAE_num) <- c("ZCAIMAE", "choice")
+IMAE_num <- matrix(c(as.vector(IMAES$IMA_DESC), 1:41, as.vector(IMAES$IMA_DEP_ID)), ncol=3) %>% as.data.frame()
+colnames(IMAE_num) <- c("ZCAIMAE", "choice", "depto")
 
 write.csv(GEO, 
           "GEO.csv", row.names=F)
