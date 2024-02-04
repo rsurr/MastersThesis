@@ -6,12 +6,27 @@ PACIENTES <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databas
 MENSUALES_HD <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/MENSUALES HD.sav")
 INGRESOS_HD2 <- read_csv("INGRESOS_HD2.csv")
 
+dife_peso <- SESIONES_HD %>% 
+  mutate(DPESOSE=case_when(DPESOSE==999.00 ~ NA,
+                           .default = as.numeric(DPESOSE)),
+         DPESOPO=case_when(DPESOPO==999.00 ~ NA,
+                           .default = as.numeric(DPESOPO)),
+         dife=DPESOPO-DPESOSE) %>% 
+  group_by(PMD_ANIO, PMD_MES, CAPACNUM) %>% 
+  summarize(dife=mean(dife)) %>% 
+  mutate(peso=case_when(abs(dife)<=0.5 ~ 1,
+                        abs(dife)>0.5 ~ 0,
+                        is.na(dife) ~ NA))
+
+cod_sept <- c(184010162, 184010183, 184010159, 184010160, 184010161)
+
 base <- left_join(MENSUALES_HD, PACIENTES, by="CAPACNUM") %>% 
   left_join(INGRESOS_HD2, by="CAPACNUM") %>%
   left_join(IMAE_num, by="ZCAIMAE") %>% 
+  left_join(dife_peso, by=c("PMD_ANIO", "PMD_MES", "CAPACNUM")) %>% 
   filter(depto=="01") %>%
   mutate_if(is.character, na_if,"") %>% 
-  group_by(CAPACNUM) %>% 
+  group_by(CAPACNUM, PMD_ANIO) %>% 
   fill(DDIAB, DCISQ, DEVP) %>% 
   ungroup() %>% 
   mutate(DDIAB=case_when(DDIAB=="D" ~ NA,
@@ -27,7 +42,14 @@ base <- left_join(MENSUALES_HD, PACIENTES, by="CAPACNUM") %>%
                             B1SNIVEL=="UTU" ~ "Secundaria",
                             .default = as.character(B1SNIVEL)),
          PAC_SEXO=case_when(PAC_SEXO=="U" ~ NA,
-                            .default = as.character(PAC_SEXO))) %>% 
+                            .default = as.character(PAC_SEXO)),
+         ocupado=case_when(ZB1SOCUP0=="Estudiante" |
+                             ZB1SOCUP0=="Jubilado" |
+                             ZB1SOCUP0=="Menor dependiente (< 15 años)" |
+                             ZB1SOCUP0=="Sin ocupación" |
+                             ZB1SOCUP0=="Tareas del hogar" ~ 0,
+                           ZB1SOCUP0=="sd" ~ NA,
+                            .default = 1)) %>% 
   mutate(urea17=case_when(EMAZOEM<1.7 ~ 1,
                           EMAZOEM>=1.7 ~ 0),
          BMI=SCEFPE/(SCEFTA/100)**2,
@@ -37,12 +59,26 @@ base <- left_join(MENSUALES_HD, PACIENTES, by="CAPACNUM") %>%
          #                 EMAZOEM>=1.7 ~ 0),
          hemo10=case_when(EMHEMOG>=10 ~ 1,
                           EMHEMOG<10 ~ 0),
-         morta=case_when(ZPMD_ESTADO!="FALLECIMIENTO" ~ 1,
-                         ZPMD_ESTADO=="FALLECIMIENTO" ~ 0)) %>% 
-  dummy_cols(select_columns = c("PAC_SEXO", "ZB1SRAZA", "DDIAB", "DCISQ", "DEVP", "B1SNIVEL"),
-             ignore_na = T)
-
-table(base$ZB1SRAZA)
+         surv=case_when(ZPMD_ESTADO!="FALLECIMIENTO" ~ 1,
+                         ZPMD_ESTADO=="FALLECIMIENTO" ~ 0),
+         comp=case_when(COMP=="S" ~ 1,
+                        COMP=="N" ~ 0,
+                        COMP=="D" | COMP=="D" | COMP==NA ~ NA),
+         sept=case_when(COMP1 %in% cod_sept |
+                         COMP2 %in% cod_sept |
+                         COMP3 %in% cod_sept ~ 1,
+                         COMP=="N" ~ 0,
+                         COMP=="D" | COMP=="D" | COMP==NA ~ NA)) %>% 
+  dummy_cols(select_columns = c("PAC_SEXO", "ZB1SRAZA", 
+                                "DDIAB", "DCISQ", "DEVP", "B1SNIVEL",
+                                "tipo_inst"),
+             ignore_na = T) %>%
+  rename(tipo_inst_IAMCIAMPP=`tipo_inst_IAMC/IAMPP`,
+         tipo_inst_SEGUROPRIVADO=`tipo_inst_SEGURO PRIVADO`) %>%
+  ungroup() %>% 
+  group_by(CAPACNUM) %>% 
+  arrange(PMD_ANIO, PMD_MES) %>% 
+  mutate(meses=row_number())
 
 # Reorder "anio" in increasing order
 base$anio <- factor(base$PMD_ANIO, levels = sort(unique(base$PMD_ANIO)))
@@ -54,141 +90,120 @@ base$ZCAIMAE <- factor(base$ZCAIMAE, levels = sort(unique(base$ZCAIMAE)))
 base$anio <- relevel(base$anio, ref = "2004")
 base$ZCAIMAE <- relevel(base$ZCAIMAE, ref = "ASOCIACION ESPAÑOLA")
 
-summary(base$B1SNIVEL_)
-
 # Fit the linear regression model
 m_urea <- lm(urea17 ~ - 1 + 
-               CASEDADA + 
+               CASEDADA + meses + ocupado +
                PAC_SEXO_F + 
                ZB1SRAZA_NEGRA + ZB1SRAZA_OTRA +
-               DDIAB_S + DCISQ_S + DEVP_S + 
+               DDIAB_S + DCISQ_S + DEVP_S + ECREAV + 
                B1SNIVEL_Primaria + B1SNIVEL_Secundaria + B1SNIVEL_Universidad +
+               tipo_inst_IAMCIAMPP + tipo_inst_SEGUROPRIVADO + tipo_inst_CORPORATIVO +
                ZCAIMAE:anio, 
              data=base)
 
 m_hemo <- lm(hemo10 ~ - 1 + 
-               CASEDADA + 
+               CASEDADA + meses + ocupado +
                PAC_SEXO_F + 
                ZB1SRAZA_NEGRA + ZB1SRAZA_OTRA +
-               DDIAB_S + DCISQ_S + DEVP_S + 
+               DDIAB_S + DCISQ_S + DEVP_S + ECREAV + 
                B1SNIVEL_Primaria + B1SNIVEL_Secundaria + B1SNIVEL_Universidad +
+               tipo_inst_IAMCIAMPP + tipo_inst_SEGUROPRIVADO + tipo_inst_CORPORATIVO +
                ZCAIMAE:anio, 
              data=base)
 
 m_fosf <- lm(fosf55 ~ - 1 + 
-               CASEDADA + 
+               CASEDADA + meses + ocupado +
                PAC_SEXO_F + 
                ZB1SRAZA_NEGRA + ZB1SRAZA_OTRA +
-               DDIAB_S + DCISQ_S + DEVP_S + 
+               DDIAB_S + DCISQ_S + DEVP_S + ECREAV + 
                B1SNIVEL_Primaria + B1SNIVEL_Secundaria + B1SNIVEL_Universidad +
+               tipo_inst_IAMCIAMPP + tipo_inst_SEGUROPRIVADO + tipo_inst_CORPORATIVO +
                ZCAIMAE:anio, 
              data=base)
 
-m_morta <- lm(morta ~ - 1 + 
-               CASEDADA + 
+m_surv <- lm(surv ~ - 1 + 
+                CASEDADA + meses + ocupado +
+                PAC_SEXO_F + 
+                ZB1SRAZA_NEGRA + ZB1SRAZA_OTRA +
+                DDIAB_S + DCISQ_S + DEVP_S + ECREAV + 
+                B1SNIVEL_Primaria + B1SNIVEL_Secundaria + B1SNIVEL_Universidad +
+                tipo_inst_IAMCIAMPP + tipo_inst_SEGUROPRIVADO + tipo_inst_CORPORATIVO +
+                ZCAIMAE:anio, 
+              data=base)
+
+m_comp <- lm(comp ~ - 1 + 
+               CASEDADA + meses + ocupado +
                PAC_SEXO_F + 
                ZB1SRAZA_NEGRA + ZB1SRAZA_OTRA +
-               DDIAB_S + DCISQ_S + DEVP_S + 
+               DDIAB_S + DCISQ_S + DEVP_S + ECREAV + 
                B1SNIVEL_Primaria + B1SNIVEL_Secundaria + B1SNIVEL_Universidad +
+               tipo_inst_IAMCIAMPP + tipo_inst_SEGUROPRIVADO + tipo_inst_CORPORATIVO +
                ZCAIMAE:anio, 
              data=base)
 
-# Use tidy() to extract coefficients
-coef_urea <- tidy(m_urea) %>%
-  select(term, estimate) %>% 
-  filter(str_detect(term, "ZCAIMAE") & str_detect(term, ":anio")) %>%
-  separate(term, into = c("ZCAIMAE", "anio"), sep = ":") %>%
-  mutate(anio = gsub("anio", "", anio),
-         ZCAIMAE = gsub("ZCAIMAE", "", ZCAIMAE)) %>% 
-  pivot_wider(names_from = "anio", values_from = "estimate")
+m_sept <- lm(sept ~ - 1 + 
+               CASEDADA + meses + ocupado +
+               PAC_SEXO_F + 
+               ZB1SRAZA_NEGRA + ZB1SRAZA_OTRA +
+               DDIAB_S + DCISQ_S + DEVP_S + ECREAV + 
+               B1SNIVEL_Primaria + B1SNIVEL_Secundaria + B1SNIVEL_Universidad +
+               tipo_inst_IAMCIAMPP + tipo_inst_SEGUROPRIVADO + tipo_inst_CORPORATIVO +
+               ZCAIMAE:anio, 
+             data=base)
 
-coef_hemo <- tidy(m_hemo) %>%
-  select(term, estimate) %>% 
-  filter(str_detect(term, "ZCAIMAE") & str_detect(term, ":anio")) %>%
-  separate(term, into = c("ZCAIMAE", "anio"), sep = ":") %>%
-  mutate(anio = gsub("anio", "", anio),
-         ZCAIMAE = gsub("ZCAIMAE", "", ZCAIMAE)) %>% 
-  pivot_wider(names_from = "anio", values_from = "estimate")
+m_peso <- lm(peso ~ - 1 + 
+               CASEDADA + meses + ocupado +
+               PAC_SEXO_F + 
+               ZB1SRAZA_NEGRA + ZB1SRAZA_OTRA +
+               DDIAB_S + DCISQ_S + DEVP_S + ECREAV + 
+               B1SNIVEL_Primaria + B1SNIVEL_Secundaria + B1SNIVEL_Universidad +
+               tipo_inst_IAMCIAMPP + tipo_inst_SEGUROPRIVADO + tipo_inst_CORPORATIVO +
+               ZCAIMAE:anio, 
+             data=base)
 
-coef_fosf <- tidy(m_fosf) %>%
-  select(term, estimate) %>% 
-  filter(str_detect(term, "ZCAIMAE") & str_detect(term, ":anio")) %>%
-  separate(term, into = c("ZCAIMAE", "anio"), sep = ":") %>%
-  mutate(anio = gsub("anio", "", anio),
-         ZCAIMAE = gsub("ZCAIMAE", "", ZCAIMAE)) %>% 
-  pivot_wider(names_from = "anio", values_from = "estimate")
+#coef_urea <- tidy(m_urea) %>%
+#  select(term, estimate) %>% 
+#  filter(str_detect(term, "ZCAIMAE") & str_detect(term, ":anio")) %>%
+#  separate(term, into = c("ZCAIMAE", "anio"), sep = ":") %>%
+#  mutate(anio = gsub("anio", "", anio),
+#         ZCAIMAE = gsub("ZCAIMAE", "", ZCAIMAE)) %>% 
+#  pivot_wider(names_from = "anio", values_from = "estimate")
+#
 
-coef_morta <- tidy(m_morta) %>%
-  select(term, estimate) %>% 
-  filter(str_detect(term, "ZCAIMAE") & str_detect(term, ":anio")) %>%
-  separate(term, into = c("ZCAIMAE", "anio"), sep = ":") %>%
-  mutate(anio = gsub("anio", "", anio),
-         ZCAIMAE = gsub("ZCAIMAE", "", ZCAIMAE)) %>% 
-  pivot_wider(names_from = "anio", values_from = "estimate")
+tipo_imae <- INGRESOS_HD2 %>% ungroup() %>% select("ZCAIMAE", "tipo_imae") %>% unique()
 
-quality <- tidy(model) %>%
-  select(term, estimate) %>% 
-  filter(str_detect(term, "ZCAIMAE") & str_detect(term, ":anio")) %>%
-  separate(term, into = c("ZCAIMAE", "anio"), sep = ":") %>%
-  mutate(anio = gsub("anio", "", anio),
-         ZCAIMAE = gsub("ZCAIMAE", "", ZCAIMAE)) %>%
-  left_join(IMAE_num, by="ZCAIMAE") %>% 
+pred_urea <- get_all_predictions(m_urea, base) %>% rename(urea=Prediction)
+pred_surv <- get_all_predictions(m_surv, base) %>% rename(surv=Prediction)
+pred_fosf <- get_all_predictions(m_fosf, base) %>% rename(fosf=Prediction)
+pred_hemo <- get_all_predictions(m_hemo, base) %>% rename(hemo=Prediction)
+pred_comp <- get_all_predictions(m_comp, base) %>% rename(comp=Prediction)
+pred_sept <- get_all_predictions(m_sept, base) %>% rename(sept=Prediction)
+pred_peso <- get_all_predictions(m_peso, base) %>% rename(peso=Prediction)
+# %>% pivot_wider(names_from = "anio", values_from = "Prediction")
+
+quality <- left_join(pred_urea, pred_surv, by=c("IMAE", "anio")) %>% 
+  left_join(pred_fosf, by=c("IMAE", "anio")) %>%
+  left_join(pred_hemo, by=c("IMAE", "anio")) %>%
+  left_join(pred_comp, by=c("IMAE", "anio")) %>%
+  left_join(pred_sept, by=c("IMAE", "anio")) %>%
+  left_join(pred_peso, by=c("IMAE", "anio")) %>%
+  left_join(tipo_imae, by=c("IMAE"="ZCAIMAE"))
+
+quality_reg <- quality %>%
+  left_join(IMAE_num, by=c("IMAE"="ZCAIMAE")) %>% 
   rename(quality=choice) %>%
-  select(anio, estimate, quality) %>% 
-  pivot_wider(names_from = "quality", values_from = "estimate", names_prefix = "quality") %>% 
+  select(anio, comp, quality) %>% 
+  pivot_wider(names_from = "quality", values_from = "comp", names_prefix = "quality") %>%
   select(anio,
          quality1, quality2, quality7, quality9, quality12, 
          quality13, quality14, quality15, quality16,
          quality17, quality18, quality19, quality20, 
          quality21, quality22, quality24, quality33, quality34,
-         quality35, quality40)
+         quality35, quality40) %>% 
+  mutate(anio=as.factor(anio))
 
 write.csv(
-  quality,
+  quality_reg,
   "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/quality.csv", 
-          row.names=FALSE)
+  row.names=FALSE)
 
-
-########################
-
-# Create a data frame with all combinations of "IMAE" and "anio"
-combinations <- expand.grid(
-  IMAE = levels(base$ZCAIMAE),  # Assuming ZCAIMAE is the variable name for "IMAE"
-  anio = levels(base$anio)      # Assuming anio is the variable name for "anio"
-)
-
-# Convert "IMAE" and "anio" to factors
-combinations$IMAE <- as.factor(combinations$IMAE)
-combinations$anio <- as.factor(combinations$anio)
-
-# Create a data frame with mean values for other predictors
-mean_values <- data.frame(
-  CASEDADA = mean(base$CASEDADA, na.rm = TRUE),
-  PAC_SEXO_F = mean(base$PAC_SEXO_F, na.rm = TRUE),
-  ZB1SRAZA_NEGRA = mean(base$ZB1SRAZA_NEGRA, na.rm = TRUE),
-  ZB1SRAZA_OTRA = mean(base$ZB1SRAZA_OTRA, na.rm = TRUE),
-  DDIAB_S = mean(base$DDIAB_S, na.rm = TRUE),
-  DCISQ_S = mean(base$DCISQ_S, na.rm = TRUE),
-  DEVP_S = mean(base$DEVP_S, na.rm = TRUE),
-  B1SNIVEL_Primaria = mean(base$B1SNIVEL_Primaria, na.rm = TRUE),
-  B1SNIVEL_Secundaria = mean(base$B1SNIVEL_Secundaria, na.rm = TRUE),
-  B1SNIVEL_Universidad = mean(base$B1SNIVEL_Universidad, na.rm = TRUE)
-)
-
-# Initialize an empty data frame to store predictions
-all_predictions <- data.frame()
-
-# Loop through all combinations and get predictions
-for (i in 1:nrow(combinations)) {
-  mean_values$ZCAIMAE <- combinations$IMAE[i]
-  mean_values$anio <- combinations$anio[i]
-  predictions <- predict(m_urea, newdata = mean_values)
-  result <- data.frame(IMAE = combinations$IMAE[i], anio = combinations$anio[i], Prediction = predictions)
-  all_predictions <- rbind(all_predictions, result)
-}
-
-# Display the resulting data frame
-print(all_predictions)
-
-pred_urea <- all_predictions %>% 
-  pivot_wider(names_from = "anio", values_from = "Prediction")

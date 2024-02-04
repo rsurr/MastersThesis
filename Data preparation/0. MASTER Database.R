@@ -13,15 +13,12 @@ GEO <- read_csv("GEO.csv") %>%
          dist17, dist18, dist19, dist20, dist21, dist22, dist24, dist33, dist34,
          dist35, dist40)
 IMAE_num <- read_csv("IMAE_num.csv")
-quality <- read_csv("quality.csv")
+quality_reg <- read_csv("quality.csv")
 
 DATA <- left_join(INGRESOS_HD2, GEO, by=c("CAPACNUM")) %>% 
   left_join(IMAE_num, by="ZCAIMAE") %>%
-  left_join(quality, by=c("anio_solicitud"="anio")) %>%
-  filter(depto=="01",
-         anio_solicitud>2003)
-
-test <- DATA %>% select(starts_with("quality"))
+  left_join(quality_reg, by=c("anio_solicitud"="anio")) %>%
+  filter(depto=="01")
 
 DATA1 <- DATA %>% 
   filter(tiene_imae==1) 
@@ -33,12 +30,11 @@ DATA0 <- DATA %>%
 mlogit1 <- dfidx(DATA1, 
                  choice="choice",
                  idnames = c("CAPACNUM", "IMAE"),
-                 shape = "long",
-                 varying=grep('^medimae|^inst|^dist', names(DATA)), 
+                 shape = "wide",
+                 varying=grep('^medimae|^inst|^dist|^quality', names(DATA)), 
                  sep="") 
 
 mlogit1dta <- mlogit1 %>% as.data.frame() %>% unnest_wider(idx)
-
 
 write_dta(mlogit1dta, 
           "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/mlogit1dta.dta",
@@ -48,7 +44,7 @@ write_dta(mlogit1dta,
           adjust_tz = TRUE)
 
 mlogit0 <- dfidx(DATA0, idx="CAPACNUM", choice="choice", 
-                 varying=grep('^dist|^medimae|^inst', names(DATA)), sep="")
+                 varying=grep('^dist|^medimae|^inst|^quality', names(DATA)), sep="")
 
 library(peakRAM)
 peakRAM({
@@ -61,6 +57,21 @@ peakRAM({
   model1 <- mlogit(choice ~ dist + medimae + inst, 
                    data = mlogit1)
 })
+
+margins <- mlogit1dta %>% 
+  group_by(IMAE) %>% 
+  summarise(medimae=mean(medimae, na.rm = T),
+            inst=mean(inst, na.rm = T),
+            dist=mean(dist, na.rm = T)) %>% as.data.frame()
+
+rownames(margins) <- margins$IMAE
+
+margins <- margins %>% select(-IMAE)
+
+margins_inst <- effects(model1, covariate = "inst", data = margins)
+margins_medimae <- effects(model1, covariate = "medimae", data = margins)
+margins_dist <- effects(model1, covariate = "dist", data = margins)
+
 
 peakRAM({
   model0 <- mlogit(choice ~ dist + medimae + inst | 

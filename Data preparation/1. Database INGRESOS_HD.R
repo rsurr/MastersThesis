@@ -182,7 +182,8 @@ INGRESOS_HD2 <- left_join(INGRESOS_HD, MEDICOS,
            num_range("inst", range = 1:41),
            CASEDADA, CASEXO, ZCASINST, ZCASDEPAR,
            CAFECSOL, ZB1SMEDIC, ZB1SRAZA, ZB1SOCUP0, SCEFPE, SCEFTA,
-           B1SNIVEL, CAPACNUM, ZCASINST, anio_solicitud, tiene_imae)) %>% 
+           B1SNIVEL, CAPACNUM, ZCASINST, anio_solicitud, tiene_imae, 
+           tipo_inst, ECREAV, tipo_imae)) %>% 
   mutate(anio_solicitud=as.factor(anio_solicitud))
 
 write.csv(INGRESOS_HD2, 
