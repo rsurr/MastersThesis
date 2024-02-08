@@ -115,21 +115,21 @@ SESIONES_HD <-  SESIONES_HD %>%
 IMAE_num <- read_csv("IMAE_num.csv")
 
 MEDICOS <- SESIONES_HD %>%
-  left_join(IMAE_num, by=c("ZPMD_IMAE"="ZCAIMAE")) %>% 
-  rename(medimae=choice) %>% 
-  filter(depto=="01") %>%
+  left_join(IMAE_num, by=c("ZPMD_IMAE"="ZCAIMAE")) %>% # Column with facility number
+  rename(medimae=choice) %>% # Name facility number column "medimae"
+  filter(depto=="01") %>% # Filter for facilities in Montevideo
   group_by(ZB1RMEDICO, medimae, PMD_ANIO) %>% 
-  summarise(n=n()) %>%
-  mutate(medimae=ifelse(medimae=="", NA, medimae),
-         ZB1RMEDICO=ifelse(ZB1RMEDICO=="" |
+  summarise(n=n()) %>% # Get the number of sessions of doctors in each facility (per year)
+  mutate(medimae=ifelse(medimae=="", NA, medimae), # Put NA if facility number blank
+         ZB1RMEDICO=ifelse(ZB1RMEDICO=="" | # Put NA if doctor name blank
                              ZB1RMEDICO=="  No corresponde" |
                              ZB1RMEDICO=="   No corresponde",
                            NA, ZB1RMEDICO)) %>% 
-  filter(!is.na(medimae), !is.na(ZB1RMEDICO)) %>%
+  filter(!is.na(medimae), !is.na(ZB1RMEDICO)) %>% # Drop facility or doctor NA observations
   group_by(medimae, PMD_ANIO) %>% 
-  dummy_cols(select_columns = "medimae") %>% 
+  dummy_cols(select_columns = "medimae") %>% # Dummies per facility (and one observation per facility-doctor-year)
   group_by(ZB1RMEDICO, PMD_ANIO) %>% 
-  summarise_at(vars(starts_with("medimae")), funs(.= max(.)))
+  summarise_at(vars(starts_with("medimae")), funs(.= max(.))) # Collapse to one observation per doctor-year
 
 names(MEDICOS) <- gsub("[._]", "", names(MEDICOS))  # Remove "_" and "."
 
@@ -149,10 +149,10 @@ imae_inst <- a %>% left_join(IMAE_num, by="ZCAIMAE")
 colnames(imae_inst) <- c("ZCAIMAE", "ZCASINST", "inst", "depto")
 
 INST <- 
-  left_join(INGRESOS_HD, imae_inst, by="ZCASINST",
-            relationship="many-to-many") %>% #WARNING
+  left_join(INGRESOS_HD, imae_inst, by="ZCASINST", 
+            relationship="many-to-many") %>% # Join facility-institution dataset with pacient dataset
   filter(depto=="01") %>% 
-  dummy_cols(select_columns = "inst") %>% 
+  dummy_cols(select_columns = c("inst", "tipo_inst")) %>% 
   group_by(CAPACNUM) %>% 
   summarise_at(vars(starts_with("inst")), funs(.= max(.))) %>% 
   mutate(inst2=0, 
@@ -166,8 +166,7 @@ INST <-
          #inst25=0, inst26=0, inst28=0, inst29=0, inst31=0, inst32=0,
          inst34=0, inst35=0, 
          #inst36=0, inst37=0, inst38=0, inst39=0,inst41=0
-         ) %>% 
-  mutate_at(vars(starts_with("inst")), ~replace(., is.na(.), 0))
+         ) 
 
 names(INST) <- gsub("[._]", "", names(INST))  # Remove "_" and "."
 
@@ -184,7 +183,9 @@ INGRESOS_HD2 <- left_join(INGRESOS_HD, MEDICOS,
            CAFECSOL, ZB1SMEDIC, ZB1SRAZA, ZB1SOCUP0, SCEFPE, SCEFTA,
            B1SNIVEL, CAPACNUM, ZCASINST, anio_solicitud, tiene_imae, 
            tipo_inst, ECREAV, tipo_imae)) %>% 
-  mutate(anio_solicitud=as.factor(anio_solicitud))
+  mutate_at(vars(starts_with(c("inst", "medimae"))), ~replace(., is.na(.), 0))
+
+table(INGRESOS_HD2$medimae16, useNA = "always")
 
 write.csv(INGRESOS_HD2, 
           "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/INGRESOS_HD2.csv", 

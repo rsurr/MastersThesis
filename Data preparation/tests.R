@@ -14,7 +14,6 @@ effects(m, covariate = "income", data = z)
 effects(m, covariate = "price", type = "rr", data = z)
 effects(m, covariate = "catch", type = "ar", data = z)
 
-
 ################
 
 

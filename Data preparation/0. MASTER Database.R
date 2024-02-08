@@ -2,6 +2,7 @@ library(readr)
 library(mlogit)
 library(tidyverse)
 library(peakRAM)
+library(haven)
 
 source("1. Database INGRESOS_HD.R")
 source("2. Database GEO.R")
@@ -18,7 +19,11 @@ quality_reg <- read_csv("quality.csv")
 DATA <- left_join(INGRESOS_HD2, GEO, by=c("CAPACNUM")) %>% 
   left_join(IMAE_num, by="ZCAIMAE") %>%
   left_join(quality_reg, by=c("anio_solicitud"="anio")) %>%
-  filter(depto=="01")
+  filter(depto=="01") %>% 
+  filter(!is.na(dist18)) # FILTRO PROVISORIO SACANDO PACIENTES CON DIST NA (60 OBS)
+
+
+
 
 DATA1 <- DATA %>% 
   filter(tiene_imae==1) 
@@ -26,15 +31,58 @@ DATA1 <- DATA %>%
 
 DATA0 <- DATA %>% 
   filter(tiene_imae==0)
-  
-mlogit1 <- dfidx(DATA1, 
+
+DATAP <- DATA %>% 
+  filter(tipo_imae=="PUBLICO")
+
+DATAPr <- DATA %>% 
+  filter(tipo_imae=="PRIVADO")
+
+DATAI <- DATA %>% 
+  filter(tipo_imae=="INDEPENDIENTE")
+
+mlogit <- dfidx(DATA, 
                  choice="choice",
                  idnames = c("CAPACNUM", "IMAE"),
                  shape = "wide",
                  varying=grep('^medimae|^inst|^dist|^quality', names(DATA)), 
+                 sep="")   
+
+mlogitP <- dfidx(DATAP, 
+                 choice="choice",
+                 idnames = c("CAPACNUM", "IMAE"),
+                 shape = "wide",
+                 varying=grep('^medimae|^inst|^dist|^quality', names(DATAP)), 
                  sep="") 
 
+mlogitPr <- dfidx(DATAPr, 
+                 choice="choice",
+                 idnames = c("CAPACNUM", "IMAE"),
+                 shape = "wide",
+                 varying=grep('^medimae|^inst|^dist|^quality', names(DATAPr)), 
+                 sep="")
+
+mlogitI <- dfidx(DATAI, 
+                  choice="choice",
+                  idnames = c("CAPACNUM", "IMAE"),
+                  shape = "wide",
+                  varying=grep('^medimae|^inst|^dist|^quality', names(DATAI)), 
+                  sep="")
+
 mlogit1dta <- mlogit1 %>% as.data.frame() %>% unnest_wider(idx)
+mlogit0dta <- mlogit0 %>% as.data.frame() %>% unnest_wider(idx)
+mlogitPdta <- mlogitP %>% as.data.frame() %>% unnest_wider(idx)
+mlogitPrdta <- mlogitPr %>% as.data.frame() %>% unnest_wider(idx)
+mlogitIdta <- mlogitI %>% as.data.frame() %>% unnest_wider(idx)
+mlogitdta <- mlogit %>% as.data.frame() %>% unnest_wider(idx) %>%
+  mutate(drop= ifelse((dist > 500000 & choice == 1), 1, 0)) %>% 
+  group_by(CAPACNUM) %>%
+  mutate(drop=max(drop)) %>% 
+  filter(drop==0)
+
+chosen <- mlogitdta %>% filter(choice==1)
+
+tail(table(chosen$dist), n=60)
 
 write_dta(mlogit1dta, 
           "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/mlogit1dta.dta",
@@ -43,12 +91,44 @@ write_dta(mlogit1dta,
           strl_threshold = 2045,
           adjust_tz = TRUE)
 
-mlogit0 <- dfidx(DATA0, idx="CAPACNUM", choice="choice", 
-                 varying=grep('^dist|^medimae|^inst|^quality', names(DATA)), sep="")
+write_dta(mlogit0dta, 
+          "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/mlogit0dta.dta",
+          version = 14,
+          label = attr(data, "label"),
+          strl_threshold = 2045,
+          adjust_tz = TRUE)
+
+write_dta(mlogitPdta, 
+          "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/mlogitPdta.dta",
+          version = 14,
+          label = attr(data, "label"),
+          strl_threshold = 2045,
+          adjust_tz = TRUE)
+
+write_dta(mlogitPrdta, 
+          "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/mlogitPrdta.dta",
+          version = 14,
+          label = attr(data, "label"),
+          strl_threshold = 2045,
+          adjust_tz = TRUE)
+
+write_dta(mlogitIdta, 
+          "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/mlogitIdta.dta",
+          version = 14,
+          label = attr(data, "label"),
+          strl_threshold = 2045,
+          adjust_tz = TRUE)
+
+write_dta(mlogitdta, 
+          "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/mlogitdta.dta",
+          version = 14,
+          label = attr(data, "label"),
+          strl_threshold = 2045,
+          adjust_tz = TRUE)
 
 library(peakRAM)
 peakRAM({
-  model1 <- mlogit(choice ~ inst + medimae + dist, data = mlogit1)
+  model1 <- mlogit(choice ~ inst + medimae + dist , data = mlogit)
 })
 
 summary(model1)
@@ -68,10 +148,14 @@ rownames(margins) <- margins$IMAE
 
 margins <- margins %>% select(-IMAE)
 
-margins_inst <- effects(model1, covariate = "inst", data = margins)
-margins_medimae <- effects(model1, covariate = "medimae", data = margins)
-margins_dist <- effects(model1, covariate = "dist", data = margins)
+margins_inst <- effects(model1, covariate = "inst", type = "aa", data = margins) %>% 
+  as.data.frame()
+margins_medimae <- effects(model1, covariate = "medimae", type = "aa", data = margins) %>% 
+  as.data.frame()
+margins_dist <- effects(model1, covariate = "dist", type = "aa", data = margins) %>% 
+  as.data.frame()
 
+margins_dist*1000
 
 peakRAM({
   model0 <- mlogit(choice ~ dist + medimae + inst | 
