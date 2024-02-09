@@ -25,7 +25,8 @@ base <- left_join(MENSUALES_HD, PACIENTES, by="CAPACNUM") %>%
   left_join(INGRESOS_HD2, by="CAPACNUM") %>%
   left_join(IMAE_num, by="ZCAIMAE") %>% 
   left_join(dife_peso, by=c("PMD_ANIO", "PMD_MES", "CAPACNUM")) %>% 
-  filter(depto=="01") %>%
+  filter(depto=="01",
+         ZCAIMAE!="SENNIAD HEMO") %>%
   mutate_if(is.character, na_if,"") %>% 
   group_by(CAPACNUM, PMD_ANIO) %>% 
   fill(DDIAB, DCISQ, DEVP) %>% 
@@ -195,7 +196,11 @@ coef_ktv <- tidy(m_ktv) %>%
   filter(str_detect(term, "ZCAIMAE") & str_detect(term, ":anio")) %>%
   separate(term, into = c("ZCAIMAE", "anio"), sep = ":") %>%
   mutate(anio = gsub("anio", "", anio),
-         ZCAIMAE = gsub("ZCAIMAE", "", ZCAIMAE)) %>% 
+         IMAE = gsub("ZCAIMAE", "", ZCAIMAE)) %>% 
+  rename(ktv=estimate) %>% 
+  select(anio, ktv, IMAE) %>% 
+  pivot_wider(names_from = "anio", values_from = "ktv")
+
 left_join(tipo_imae, by=c("ZCAIMAE")) %>%
   mutate(tipo_imae2=case_when(tipo_imae=="INDEPENDIENTE" ~ "Indep",
                               tipo_imae=="PRIVADO" ~ "Netwk",
@@ -224,10 +229,20 @@ quality <- left_join(pred_urea, pred_surv, by=c("IMAE", "anio")) %>%
   left_join(pred_sept, by=c("IMAE", "anio")) %>%
   left_join(pred_peso, by=c("IMAE", "anio")) %>%
   left_join(pred_URR, by=c("IMAE", "anio")) %>%
+  left_join(pred_ktv, by=c("IMAE", "anio")) %>%
   left_join(tipo_imae, by=c("IMAE"="ZCAIMAE")) %>%
   mutate(tipo_imae2=case_when(tipo_imae=="INDEPENDIENTE" ~ "Indep",
                               tipo_imae=="PRIVADO" ~ "Netwk",
                               tipo_imae=="PUBLICO" ~ "Public"))
+
+pred_URRW <- pred_URR %>% 
+  pivot_wider(names_from = "anio", values_from = "URR")
+
+URR65 <- base %>% group_by(ZCAIMAE, anio) %>% summarise(URR65=mean(URR65, na.rm=T)) %>% 
+  pivot_wider(names_from = "anio", values_from = "URR65")
+
+URR <- base %>% group_by(ZCAIMAE, anio) %>% summarise(URR=mean(URR, na.rm=T)) %>% 
+  pivot_wider(names_from = "anio", values_from = "URR")
 
 quality %>% 
   group_by(tipo_imae2) %>% 
