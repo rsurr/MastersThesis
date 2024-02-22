@@ -1,87 +1,19 @@
-# UREA
-ggplot(quality, aes(x = tipo_imae, y = urea, fill = tipo_imae)) +
-  geom_boxplot(alpha = 0.7, color = "black") +  # Use alpha for transparency
-  labs(x = "tipo_imae",
-       y = "Urea") +
-  scale_fill_manual(values = c("PRIVADO" = "#66C2A5", "INDEPENDIENTE" = "#FC8D62", "PUBLICO" = "#8DA0CB")) +
-  theme_minimal() +
-  theme(legend.position = "none")  
-
-# HEMO
-ggplot(quality, aes(x = tipo_imae, y = hemo, fill = tipo_imae)) +
-  geom_boxplot(alpha = 0.7, color = "black") +  # Use alpha for transparency
-  labs(x = "tipo_imae",
-       y = "Hemo") +
-  scale_fill_manual(values = c("PRIVADO" = "#66C2A5", "INDEPENDIENTE" = "#FC8D62", "PUBLICO" = "#8DA0CB")) +
-  theme_minimal() +
-  theme(legend.position = "none")  
-
-# MORTA
-ggplot(quality, aes(x = tipo_imae, y = morta, fill = tipo_imae)) +
-  geom_boxplot(alpha = 0.7, color = "black") +  # Use alpha for transparency
-  labs(x = "tipo_imae",
-       y = "Survival") +
-  scale_fill_manual(values = c("PRIVADO" = "#66C2A5", "INDEPENDIENTE" = "#FC8D62", "PUBLICO" = "#8DA0CB")) +
-  theme_minimal() +
-  theme(legend.position = "none")  
-
-# FOSF
-ggplot(quality, aes(x = tipo_imae, y = fosf, fill = tipo_imae)) +
-  geom_boxplot(alpha = 0.7, color = "black") +  # Use alpha for transparency
-  labs(x = "tipo_imae",
-       y = "Fosf") +
-  scale_fill_manual(values = c("PRIVADO" = "#66C2A5", "INDEPENDIENTE" = "#FC8D62", "PUBLICO" = "#8DA0CB")) +
-  theme_minimal() +
-  theme(legend.position = "none")  
-
-
-# COMP
-ggplot(quality, aes(x = tipo_imae, y = comp, fill = tipo_imae)) +
-  geom_boxplot(alpha = 0.7, color = "black") +  # Use alpha for transparency
-  labs(x = "tipo_imae",
-       y = "Comp") +
-  scale_fill_manual(values = c("PRIVADO" = "#66C2A5", "INDEPENDIENTE" = "#FC8D62", "PUBLICO" = "#8DA0CB")) +
-  theme_minimal() +
-  theme(legend.position = "none")  
-
-# SEPT
-ggplot(quality, aes(x = tipo_imae, y = sept, fill = tipo_imae)) +
-  geom_boxplot(alpha = 0.7, color = "black") +  # Use alpha for transparency
-  labs(x = "tipo_imae",
-       y = "Sept") +
-  scale_fill_manual(values = c("PRIVADO" = "#66C2A5", "INDEPENDIENTE" = "#FC8D62", "PUBLICO" = "#8DA0CB")) +
-  theme_minimal() +
-  theme(legend.position = "none")  
-
-# PESO
-ggplot(quality, aes(x = tipo_imae, y = peso, fill = tipo_imae)) +
-  geom_boxplot(alpha = 0.7, color = "black") +  # Use alpha for transparency
-  labs(x = "tipo_imae",
-       y = "Peso") +
-  scale_fill_manual(values = c("PRIVADO" = "#66C2A5", "INDEPENDIENTE" = "#FC8D62", "PUBLICO" = "#8DA0CB")) +
-  theme_minimal() +
-  theme(legend.position = "none") 
-
-# PESO
-coef_ktv %>% 
-filter(ZCAIMAE!="HOSPITAL BRITANICO") %>% 
-ggplot(aes(x = tipo_imae2, y = estimate, fill = tipo_imae2)) +
-  geom_boxplot(alpha = 0.7, color = "black") +  # Use alpha for transparency
-  labs(x = "tipo_imae",
-       y = "Peso") +
-  theme_minimal() +
-  theme(legend.position = "none") 
-
-
-labs <- c("Urea", "Survival", "Phosphorus", "Hemoglobin", "Complication", "Septic infection", "Weight", "URR", "Kt/V")
+labs <- c("Urea", "Survival", "Phosphorus", "Hemoglobin", 
+          "No complications", "Septic infection", "Weight", 
+          "Urea Reduction Rate", "Kt/V")
 names(labs) <- c("urea", "surv", "fosf", "hemo", "comp", "sept", "peso", "URR", "ktv")
+
+names <- cbind(names(labs), labs)%>% as.data.frame()
+colnames(names) <- c("measure", "Names") 
+
+
 
 quality %>%
   pivot_longer(c(urea, surv, fosf, hemo, comp, sept, peso, URR, ktv)) %>% 
-  filter(IMAE!="SENNIAD HEMO") %>% 
   ggplot(aes(y=value, x=tipo_imae2, color=tipo_imae2)) +
   geom_boxplot() +
   facet_wrap(~name, scale="free_y", labeller = labeller(name=labs)) +
+  coord_cartesian(ylim = c(0, 1)) +  # Restrict y-axis from 0 to 1
   theme(
     legend.position = "none",
     axis.title.x = element_blank(),  # Remove x-axis label
@@ -90,14 +22,27 @@ quality %>%
     panel.grid.major = element_line(color = "gray"),  # Change major gridlines to gray
     panel.grid.minor = element_blank(),  # Remove minor gridlines
     strip.background = element_blank()  # Remove background from facet titles
-  )
+  ) +
+  scale_color_viridis_d(end=0.8)
+ggsave("adjusted.png", dpi = 500, scale=3)
 
-
-library(ggplot2)
-library(tidyr)
-library(dplyr)
-
-# Assuming your data is stored in a dataframe called 'quality'
+non_adj_quality %>%
+  pivot_longer(c(urea, surv, fosf, hemo, comp, sept, peso, URR, ktv)) %>% 
+  ggplot(aes(y=value, x=tipo_imae2, color=tipo_imae2)) +
+  geom_boxplot() +
+  facet_wrap(~name, scale="free_y", labeller = labeller(name=labs)) +
+  coord_cartesian(ylim = c(0, 1)) +  # Restrict y-axis from 0 to 1
+  theme(
+    legend.position = "none",
+    axis.title.x = element_blank(),  # Remove x-axis label
+    axis.title.y = element_blank(),  # Remove x-axis label
+    panel.background = element_rect(fill = "white"),  # Change background to white
+    panel.grid.major = element_line(color = "gray"),  # Change major gridlines to gray
+    panel.grid.minor = element_blank(),  # Remove minor gridlines
+    strip.background = element_blank()  # Remove background from facet titles
+  ) +
+  scale_color_viridis_d(end=0.8)
+ggsave("unadjusted.png", dpi = 500, scale=3)
 
 mean_qual <- quality %>%
   group_by(IMAE) %>% 
@@ -106,12 +51,58 @@ mean_qual <- quality %>%
             sept = mean(sept, na.rm = TRUE), 
             tipo_imae2 = first(tipo_imae2))
 
-sd(mean_qual$mean)
+mean_non_adj_qual <- non_adj_quality %>%
+  group_by(IMAE) %>% 
+  summarise(URR = mean(URR, na.rm = TRUE),
+            ktv = mean(ktv, na.rm = TRUE), 
+            sept = mean(sept, na.rm = TRUE), 
+            tipo_imae2 = first(tipo_imae2))
+
+library(ggplot2)
+library(viridis)
 
 mean_qual %>% 
   ggplot(aes(y = URR, x = reorder(IMAE, -URR), fill = tipo_imae2)) +
   geom_bar(stat = "identity") +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  scale_fill_viridis_d(end = 0.8, name = "Provider type") +  # Adding legend title
+  theme(
+    legend.position = "bottom",
+    axis.title.x = element_blank(),  # Remove x-axis label
+    axis.title.y = element_blank(),  # Remove x-axis label
+    panel.background = element_rect(fill = "white"),  # Change background to white
+    panel.grid.major = element_line(color = "gray"),  # Change major gridlines to gray
+    panel.grid.minor = element_blank(),  # Remove minor gridlines
+    strip.background = element_blank()  # Remove background from facet titles
+  ) +
+  scale_x_discrete(labels = function(x) substr(x, nchar(x)-7, nchar(x))) +
+  coord_cartesian(ylim = c(0, 1))
+ggsave("mean_adjusted.png", dpi = 500, scale=3)
+
+
+mean_non_adj_qual %>% 
+  ggplot(aes(y = URR, x = reorder(IMAE, -URR), fill = tipo_imae2)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  scale_fill_viridis_d(end = 0.8, name = "Provider type") +  # Adding legend title
+  theme(
+    legend.position = "bottom",
+    axis.title.x = element_blank(),  # Remove x-axis label
+    axis.title.y = element_blank(),  # Remove x-axis label
+    panel.background = element_rect(fill = "white"),  # Change background to white
+    panel.grid.major = element_line(color = "gray"),  # Change major gridlines to gray
+    panel.grid.minor = element_blank(),  # Remove minor gridlines
+    strip.background = element_blank()  # Remove background from facet titles
+  ) +
+  scale_x_discrete(labels = function(x) substr(x, nchar(x)-7, nchar(x))) +
+  coord_cartesian(ylim = c(0, 1))
+ggsave("mean_unadjusted.png", dpi = 500, scale=3)
+
+mean_non_adj_qual <- mean_non_adj_qual %>% mutate(type="Unadjusted")
+mean_qual <- mean_qual %>% mutate(type="Risk-adjusted")
+
+mean <- rbind(mean_qual, mean_non_adj_qual)
+
 
 mean_qual %>% 
   ggplot(aes(y = ktv, x = reorder(IMAE, -ktv), fill = tipo_imae2)) +

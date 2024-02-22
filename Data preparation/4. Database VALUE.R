@@ -6,6 +6,8 @@ library(fastDummies)
 PACIENTES <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/PACIENTES.sav")
 MENSUALES_HD <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/MENSUALES HD.sav")
 INGRESOS_HD2 <- read_csv("INGRESOS_HD2.csv")
+IMAE_num <- read_csv("IMAE_num.csv")
+SESIONES_HD <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/SESIONES HD.sav") 
 
 dife_peso <- SESIONES_HD %>% 
   mutate(DPESOSE=case_when(DPESOSE==999.00 ~ NA,
@@ -14,7 +16,7 @@ dife_peso <- SESIONES_HD %>%
                            .default = as.numeric(DPESOPO)),
          dife=DPESOPO-DPESOSE) %>% 
   group_by(PMD_ANIO, PMD_MES, CAPACNUM) %>% 
-  summarize(dife=mean(dife)) %>% 
+  summarize(dife=mean(dife, na.rm=T)) %>% 
   mutate(peso=case_when(abs(dife)<=0.5 ~ 1,
                         abs(dife)>0.5 ~ 0,
                         is.na(dife) ~ NA))
@@ -63,8 +65,8 @@ base <- left_join(MENSUALES_HD, PACIENTES, by="CAPACNUM") %>%
                           EMHEMOG<10 ~ 0),
          surv=case_when(ZPMD_ESTADO!="FALLECIMIENTO" ~ 1,
                          ZPMD_ESTADO=="FALLECIMIENTO" ~ 0),
-         comp=case_when(COMP=="S" ~ 1,
-                        COMP=="N" ~ 0,
+         comp=case_when(COMP=="S" ~ 0,
+                        COMP=="N" ~ 1,
                         COMP=="D" | COMP=="D" | COMP==NA ~ NA),
          sept=case_when(COMP1 %in% cod_sept |
                          COMP2 %in% cod_sept |
@@ -203,12 +205,13 @@ coef_ktv <- tidy(m_ktv) %>%
 
 left_join(tipo_imae, by=c("ZCAIMAE")) %>%
   mutate(tipo_imae2=case_when(tipo_imae=="INDEPENDIENTE" ~ "Indep",
-                              tipo_imae=="PRIVADO" ~ "Netwk",
-                              tipo_imae=="PUBLICO" ~ "Public"))
+                              tipo_imae=="PRIVADO" ~ "Priv Ins",
+                              tipo_imae=="PUBLICO" ~ "Pub Ins"))
 
 
-tipo_imae <- INGRESOS_HD2 %>% ungroup() %>% select("ZCAIMAE", "tipo_imae") %>% unique()
+tipo_imae <- INGRESOS_HD2 %>% ungroup() %>% select("ZCAIMAE", "tipo_choice") %>% unique()
 
+source("Functions.R")
 pred_urea <- get_all_predictions(m_urea, base) %>% rename(urea=Prediction)
 pred_surv <- get_all_predictions(m_surv, base) %>% rename(surv=Prediction)
 pred_fosf <- get_all_predictions(m_fosf, base) %>% rename(fosf=Prediction)
@@ -231,9 +234,9 @@ quality <- left_join(pred_urea, pred_surv, by=c("IMAE", "anio")) %>%
   left_join(pred_URR, by=c("IMAE", "anio")) %>%
   left_join(pred_ktv, by=c("IMAE", "anio")) %>%
   left_join(tipo_imae, by=c("IMAE"="ZCAIMAE")) %>%
-  mutate(tipo_imae2=case_when(tipo_imae=="INDEPENDIENTE" ~ "Indep",
-                              tipo_imae=="PRIVADO" ~ "Netwk",
-                              tipo_imae=="PUBLICO" ~ "Public"))
+  mutate(tipo_imae2=case_when(tipo_choice=="INDEPENDIENTE" ~ "Indep",
+                              tipo_choice=="PRIVADO" ~ "Priv Ins",
+                              tipo_choice=="PUBLICO" ~ "Pub Ins"))
 
 pred_URRW <- pred_URR %>% 
   pivot_wider(names_from = "anio", values_from = "URR")
@@ -252,6 +255,47 @@ quality %>%
             Hemoglobin=mean(hemo, na.rm = T)*100,
             Complication=mean(comp, na.rm = T)*100,
             "Septic infections"=mean(sept, na.rm = T)*100) %>% as.data.frame()
+
+non_adj_quality <- base %>% 
+  group_by(ZCAIMAE, anio) %>% 
+  summarise(urea=mean(urea17, na.rm = T),
+            surv=mean(surv, na.rm = T),
+            fosf=mean(fosf55, na.rm = T),
+            hemo=mean(hemo10, na.rm = T),
+            peso=mean(peso, na.rm = T),
+            comp=mean(comp, na.rm = T),
+            URR=mean(URR65, na.rm = T),
+            ktv=mean(ktv12, na.rm = T),
+            sept=mean(sept, na.rm = T)) %>%
+  rename(IMAE=ZCAIMAE) %>% 
+  left_join(tipo_imae, by=c("IMAE"="ZCAIMAE")) %>%
+  mutate(tipo_imae2=case_when(tipo_choice=="INDEPENDIENTE" ~ "Indep",
+                                tipo_choice=="PRIVADO" ~ "Priv Ins",
+                                tipo_choice=="PUBLICO" ~ "Pub Ins"))
+
+adjusted <- quality %>%
+  pivot_longer(cols = c("urea", "surv", "fosf", "hemo", "comp", 
+                        "sept", "peso", "URR", "ktv"), 
+               names_to = "measure", values_to = "value") %>% 
+  group_by(measure) %>% 
+  summarise(Mean = round(mean(value, na.rm = TRUE), 2), 
+            "Std Dev" = paste0("(", round(sd(value, na.rm = TRUE), 2), ")"))
+
+
+unadjusted <- non_adj_quality %>%
+  pivot_longer(cols = c("urea", "surv", "fosf", "hemo", 
+                        "comp", "sept", "peso", "URR", "ktv"), 
+               names_to = "measure", values_to = "value") %>% 
+  group_by(measure) %>% 
+  summarise(Mean = round(mean(value, na.rm = TRUE), 2), 
+            "Std Dev" = paste0("(", round(sd(value, na.rm = TRUE), 2), ")"))
+
+
+mean_sd <- full_join(unadjusted, adjusted, by="measure") %>% 
+  full_join(names, by="measure") %>%
+  select(Names, everything(), -measure)
+
+write.csv(mean_sd, "mean_sd.csv", row.names=FALSE)
 
 mean <- quality %>% 
   summarise(Urea = round(mean(urea, na.rm = TRUE) * 100, 2),
@@ -278,13 +322,13 @@ print(xtable::xtable(quality_summary, caption = "Means and Standard Deviations o
       caption.placement = "top", include.rownames = FALSE)
 
 
-quality_reg <- quality %>%
+quality_reg <- non_adj_quality %>%
   left_join(IMAE_num, by=c("IMAE"="ZCAIMAE")) %>% 
   rename(quality=choice) %>%
   select(anio, URR, quality) %>% 
   pivot_wider(names_from = "quality", values_from = "URR", names_prefix = "quality") %>%
   select(anio,
-         quality1, quality2, quality7, quality9, quality12, 
+         quality1, quality2, quality9, quality12, 
          quality13, quality14, quality15, quality16,
          quality17, quality18, quality19, quality20, 
          quality21, quality22, quality24, quality33, quality34,
@@ -296,7 +340,10 @@ write.csv(
   "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/quality.csv", 
   row.names=FALSE)
 
-stargazer::stargazer(m_urea, m_hemo, m_fosf, m_surv, m_comp, m_sept, m_peso, type="latex",
+library(stargazer)
+stargazer(m_urea, m_hemo, m_fosf, m_surv, m_comp, 
+                     m_sept, m_peso, m_ktv, m_URR,
+                     type="latex",
                      keep = c("CASEDADA", "meses", "ocupado",
                                 "PAC_SEXO_F",
                                 "ZB1SRAZA_NEGRA", "ZB1SRAZA_OTRA",
@@ -308,3 +355,4 @@ stargazer::stargazer(m_urea, m_hemo, m_fosf, m_surv, m_comp, m_sept, m_peso, typ
 
 stargazer::stargazer(m_urea, m_hemo, m_fosf, m_surv, m_comp, m_sept, m_peso, type="latex",
                      keep = c("CASEDADA", "meses", "ocupado"), df=FALSE, no.space = TRUE)
+

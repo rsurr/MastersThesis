@@ -170,22 +170,36 @@ INST <-
 
 names(INST) <- gsub("[._]", "", names(INST))  # Remove "_" and "."
 
+tipo <- INGRESOS_HD %>%
+  group_by(ZCAIMAE) %>% 
+  summarize(tipo_imae=first(tipo_imae)) %>%
+  left_join(IMAE_num, by="ZCAIMAE") %>% 
+  rename(tipo=tipo_imae, tipo_imae=choice) %>%
+  select(tipo_imae, tipo) %>% 
+  pivot_wider(names_from = "tipo_imae", values_from = "tipo", names_prefix = "tipo_imae") %>%
+  select(tipo_imae1, tipo_imae2, tipo_imae7, tipo_imae9, tipo_imae12, 
+         tipo_imae13, tipo_imae14, tipo_imae15, tipo_imae16,
+         tipo_imae17, tipo_imae18, tipo_imae19, tipo_imae20, 
+         tipo_imae21, tipo_imae22, tipo_imae24, tipo_imae33, tipo_imae34,
+         tipo_imae35, tipo_imae40)
+
 INGRESOS_HD2 <- left_join(INGRESOS_HD, MEDICOS, 
                           by=c("ZB1SMEDIC"="ZB1RMEDICO",
                                "anio_solicitud"="PMDANIO")) %>%
   group_by(CAPACNUM) %>% 
   slice_max(CASEDADA, with_ties = FALSE) %>% 
   left_join(INST, by = join_by(CAPACNUM)) %>%
+  cbind(tipo) %>% 
   select(c(ZCAIMAE, CAPACNUM, 
            num_range("medimae", range = 1:41), 
            num_range("inst", range = 1:41),
+           num_range("tipo_imae", range = 1:41),
            CASEDADA, CASEXO, ZCASINST, ZCASDEPAR,
            CAFECSOL, ZB1SMEDIC, ZB1SRAZA, ZB1SOCUP0, SCEFPE, SCEFTA,
            B1SNIVEL, CAPACNUM, ZCASINST, anio_solicitud, tiene_imae, 
-           tipo_inst, ECREAV, tipo_imae)) %>% 
+           tipo_inst, tipo_pac, ECREAV, tipo_imae)) %>% 
+  rename(tipo_choice=tipo_imae) %>% 
   mutate_at(vars(starts_with(c("inst", "medimae"))), ~replace(., is.na(.), 0))
-
-table(INGRESOS_HD2$medimae16, useNA = "always")
 
 write.csv(INGRESOS_HD2, 
           "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/INGRESOS_HD2.csv", 
