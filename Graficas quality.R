@@ -51,6 +51,7 @@ mean_qual <- quality %>%
             sept = mean(sept, na.rm = TRUE), 
             tipo_imae2 = first(tipo_imae2))
 
+
 mean_non_adj_qual <- non_adj_quality %>%
   group_by(IMAE) %>% 
   summarise(URR = mean(URR, na.rm = TRUE),
