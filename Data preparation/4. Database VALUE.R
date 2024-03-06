@@ -3,11 +3,14 @@ library(haven)
 library(readr)
 library(fastDummies)
 
-PACIENTES <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/PACIENTES.sav")
-MENSUALES_HD <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/MENSUALES HD.sav")
+PACIENTES <- 
+  read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/PACIENTES.sav")
+MENSUALES_HD <- 
+  read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/MENSUALES HD.sav")
 INGRESOS_HD2 <- read_csv("INGRESOS_HD2.csv")
 IMAE_num <- read_csv("IMAE_num.csv")
-SESIONES_HD <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/SESIONES HD.sav") 
+SESIONES_HD <- 
+  read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/SESIONES HD.sav") 
 
 dife_peso <- SESIONES_HD %>% 
   mutate(DPESOSE=case_when(DPESOSE==999.00 ~ NA,
@@ -179,7 +182,7 @@ m_URR <- lm(URR65 ~ - 1 +
                DDIAB_S + DCISQ_S + DEVP_S + ECREAV + 
                B1SNIVEL_Primaria + B1SNIVEL_Secundaria + B1SNIVEL_Universidad +
                tipo_inst_IAMCIAMPP + tipo_inst_SEGUROPRIVADO + tipo_inst_CORPORATIVO +
-               ZCAIMAE:anio, 
+               ZCAIMAE:anio + CAPACNUM, 
              data=base)
 
 m_ktv <- lm(ktv12 ~ - 1 + 
@@ -208,7 +211,6 @@ left_join(tipo_imae, by=c("ZCAIMAE")) %>%
                               tipo_imae=="PRIVADO" ~ "Priv Ins",
                               tipo_imae=="PUBLICO" ~ "Pub Ins"))
 
-
 tipo_imae <- INGRESOS_HD2 %>% ungroup() %>% select("ZCAIMAE", "tipo_choice") %>% unique()
 
 source("Functions.R")
@@ -221,9 +223,6 @@ pred_sept <- get_all_predictions(m_sept, base) %>% rename(sept=Prediction)
 pred_peso <- get_all_predictions(m_peso, base) %>% rename(peso=Prediction)
 pred_URR <- get_all_predictions(m_URR, base) %>% rename(URR=Prediction)
 pred_ktv <- get_all_predictions(m_ktv, base) %>% rename(ktv=Prediction)
-
-
-# %>% pivot_wider(names_from = "anio", values_from = "Prediction")
 
 quality <- left_join(pred_urea, pred_surv, by=c("IMAE", "anio")) %>% 
   left_join(pred_fosf, by=c("IMAE", "anio")) %>%
@@ -281,7 +280,6 @@ adjusted <- quality %>%
   summarise(Mean = round(mean(value, na.rm = TRUE), 2), 
             "Std Dev" = paste0("(", round(sd(value, na.rm = TRUE), 2), ")"))
 
-
 unadjusted <- non_adj_quality %>%
   pivot_longer(cols = c("urea", "surv", "fosf", "hemo", 
                         "comp", "sept", "peso", "URR", "ktv"), 
@@ -289,7 +287,6 @@ unadjusted <- non_adj_quality %>%
   group_by(measure) %>% 
   summarise(Mean = round(mean(value, na.rm = TRUE), 2), 
             "Std Dev" = paste0("(", round(sd(value, na.rm = TRUE), 2), ")"))
-
 
 mean_sd <- full_join(unadjusted, adjusted, by="measure") %>% 
   full_join(names, by="measure") %>%
@@ -320,7 +317,6 @@ quality_summary <- rbind(mean, sd)
 # Print LaTeX table
 print(xtable::xtable(quality_summary, caption = "Means and Standard Deviations of Variables"), 
       caption.placement = "top", include.rownames = FALSE)
-
 
 quality_reg <- non_adj_quality %>%
   left_join(IMAE_num, by=c("IMAE"="ZCAIMAE")) %>% 
@@ -355,4 +351,14 @@ stargazer(m_urea, m_hemo, m_fosf, m_surv, m_comp,
 
 stargazer::stargazer(m_urea, m_hemo, m_fosf, m_surv, m_comp, m_sept, m_peso, type="latex",
                      keep = c("CASEDADA", "meses", "ocupado"), df=FALSE, no.space = TRUE)
+
+base %>% group_by(CAPACNUM) %>%
+  summarise(Age=mean(CASEDADA, na.rm=T),
+            Diabetic=mean(DDIAB_S, na.rm=T)) %>%
+  summarise(Age=mean(Age, na.rm=T),
+            Diabetic=paste0(round(mean(Diabetic, na.rm=T), digits = 2)*100, "%"))
+
+
+
+
 

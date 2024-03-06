@@ -203,5 +203,5 @@ INGRESOS_HD2 <- left_join(INGRESOS_HD, MEDICOS,
 
 write.csv(INGRESOS_HD2, 
           "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/INGRESOS_HD2.csv", 
-          row.names=FALSE)
+          row.names=FALSE)  
 

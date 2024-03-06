@@ -199,3 +199,5 @@ ggplot() +
         strip.background = element_blank()  # Remove background from facet titles
   )
 ggsave("maps_patient.png", dpi = 500, scale=3)
+
+

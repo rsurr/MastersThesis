@@ -3,6 +3,7 @@ library(mlogit)
 library(tidyverse)
 library(peakRAM)
 library(haven)
+library(kableExtra)
 
 source("1. Database INGRESOS_HD.R")
 source("2. Database GEO.R")
@@ -94,17 +95,26 @@ summary(model)
 
 #--------------------- 
 
-library(dplyr)
-library(knitr)
-library(kableExtra)
-
-result <- DATA %>%
+result_tiene <- DATA %>%
+  filter(tiene_imae==1) %>% 
   group_by(ZCAIMAE) %>%
   summarise(Frequency = n()) %>%
   mutate(Percentage = round(Frequency / sum(Frequency) * 100, 2),
          ZCAIMAE=str_to_title(ZCAIMAE)) %>%
   arrange(desc(Frequency)) %>%
-  add_row(ZCAIMAE = "Total", Frequency = sum(.$Frequency), Percentage = 100) %>%
-  kable("latex", booktabs = TRUE)
+  add_row(ZCAIMAE = "Total", Frequency = sum(.$Frequency), Percentage = 100)
 
-writeLines(result, "table.tex")
+result_notiene <- DATA %>%
+  filter(tiene_imae==0) %>% 
+  group_by(ZCAIMAE) %>%
+  summarise(Frequency = n()) %>%
+  mutate(Percentage = round(Frequency / sum(Frequency) * 100, 2),
+         ZCAIMAE=str_to_title(ZCAIMAE)) %>%
+  arrange(desc(Frequency)) %>%
+  add_row(ZCAIMAE = "Total", Frequency = sum(.$Frequency), Percentage = 100) 
+
+inner_join(result_tiene, result_notiene, by="ZCAIMAE") %>%
+  kable("latex", booktabs = TRUE) %>% 
+  writeLines("table.tex")
+
+DATA$
