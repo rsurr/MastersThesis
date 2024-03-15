@@ -27,7 +27,7 @@ get_all_predictions <- function(model, data) {
     tipo_inst_CORPORATIVO = mean(base$tipo_inst_CORPORATIVO, na.rm = TRUE),
     ocupado = mean(base$ocupado, na.rm = TRUE),
     ECREAV = mean(base$ECREAV, na.rm = TRUE)
-  )
+    )
   
   # Initialize an empty data frame to store predictions
   all_predictions <- data.frame()
@@ -50,3 +50,25 @@ get_all_predictions <- function(model, data) {
   return(all_predictions)
 }
 
+library(dplyr)
+library(tidyr)
+library(stringr)
+
+extract_coefficients <- function(model) {
+  model_name <- deparse(substitute(model))
+  
+  coef_df <- tidy(model) %>%
+    select(term, estimate) %>% 
+    filter(str_detect(term, "ZCAIMAE") & str_detect(term, ":anio")) %>%
+    separate(term, into = c("ZCAIMAE", "anio"), sep = ":") %>%
+    mutate(anio = gsub("anio", "", anio),
+           IMAE = gsub("ZCAIMAE", "", ZCAIMAE)) %>% 
+    rename(!!model_name := estimate) %>% 
+    select(anio, !!model_name, IMAE)
+  
+  return(coef_df)
+}
+
+# Example usage:
+# Assuming 'fe_ktv' is your model object
+coefficients_df <- extract_coefficients(fe_ktv)

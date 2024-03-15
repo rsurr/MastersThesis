@@ -2,6 +2,8 @@ library(tidyverse)
 library(haven)
 library(readr)
 library(fastDummies)
+library(broom)
+
 
 PACIENTES <- 
   read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/PACIENTES.sav")
@@ -56,7 +58,8 @@ base <- left_join(MENSUALES_HD, PACIENTES, by="CAPACNUM") %>%
                              ZB1SOCUP0=="Sin ocupación" |
                              ZB1SOCUP0=="Tareas del hogar" ~ 0,
                            ZB1SOCUP0=="sd" ~ NA,
-                            .default = 1)) %>% 
+                            .default = 1), 
+         CAPACNUM=as.factor(CAPACNUM)) %>% 
   mutate(urea17=case_when(EMAZOEM<1.7 ~ 1,
                           EMAZOEM>=1.7 ~ 0),
          BMI=SCEFPE/(SCEFTA/100)**2,
@@ -100,9 +103,10 @@ base$anio <- factor(base$PMD_ANIO, levels = sort(unique(base$PMD_ANIO)))
 # Reorder "ZCAIMAE" alphabetically
 base$ZCAIMAE <- factor(base$ZCAIMAE, levels = sort(unique(base$ZCAIMAE)))
 
-# Set reference levels for anio and ZCAIMAE
+# Set reference levels for anio, ZCAIMAE and CAPACNUM
 base$anio <- relevel(base$anio, ref = "2004")
 base$ZCAIMAE <- relevel(base$ZCAIMAE, ref = "ASOCIACION ESPAÑOLA")
+base$CAPACNUM <- relevel(base$CAPACNUM, ref="344677")
 
 # Fit the linear regression model
 m_urea <- lm(urea17 ~ - 1 + 
@@ -182,7 +186,7 @@ m_URR <- lm(URR65 ~ - 1 +
                DDIAB_S + DCISQ_S + DEVP_S + ECREAV + 
                B1SNIVEL_Primaria + B1SNIVEL_Secundaria + B1SNIVEL_Universidad +
                tipo_inst_IAMCIAMPP + tipo_inst_SEGUROPRIVADO + tipo_inst_CORPORATIVO +
-               ZCAIMAE:anio + CAPACNUM, 
+               ZCAIMAE:anio, 
              data=base)
 
 m_ktv <- lm(ktv12 ~ - 1 + 
@@ -195,7 +199,6 @@ m_ktv <- lm(ktv12 ~ - 1 +
               ZCAIMAE:anio, 
             data=base)
 
-library(broom)
 coef_ktv <- tidy(m_ktv) %>%
   select(term, estimate) %>% 
   filter(str_detect(term, "ZCAIMAE") & str_detect(term, ":anio")) %>%
@@ -206,14 +209,14 @@ coef_ktv <- tidy(m_ktv) %>%
   select(anio, ktv, IMAE) %>% 
   pivot_wider(names_from = "anio", values_from = "ktv")
 
-left_join(tipo_imae, by=c("ZCAIMAE")) %>%
-  mutate(tipo_imae2=case_when(tipo_imae=="INDEPENDIENTE" ~ "Indep",
-                              tipo_imae=="PRIVADO" ~ "Priv Ins",
-                              tipo_imae=="PUBLICO" ~ "Pub Ins"))
+#left_join(tipo_imae, by=c("ZCAIMAE")) %>%
+#  mutate(tipo_imae2=case_when(tipo_imae=="INDEPENDIENTE" ~ "Indep",
+#                              tipo_imae=="PRIVADO" ~ "Priv Ins",
+#                              tipo_imae=="PUBLICO" ~ "Pub Ins"))
 
 tipo_imae <- INGRESOS_HD2 %>% ungroup() %>% select("ZCAIMAE", "tipo_choice") %>% unique()
 
-source("Functions.R")
+source("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/Data preparation/Functions.R")
 pred_urea <- get_all_predictions(m_urea, base) %>% rename(urea=Prediction)
 pred_surv <- get_all_predictions(m_surv, base) %>% rename(surv=Prediction)
 pred_fosf <- get_all_predictions(m_fosf, base) %>% rename(fosf=Prediction)
