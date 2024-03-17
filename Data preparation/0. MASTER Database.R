@@ -17,21 +17,31 @@ GEO <- read_csv("GEO.csv") %>%
 IMAE_num <- read_csv("IMAE_num.csv")
 quality_reg <- read_csv("quality.csv")
 
-DATA <- left_join(INGRESOS_HD2, GEO, by=c("CAPACNUM")) %>% 
-  left_join(IMAE_num, by="ZCAIMAE") %>%
-  left_join(quality_reg, by=c("anio_solicitud"="anio")) %>%
+DATA <- 
+  left_join(SESIONES_HD, INGRESOS_HD2, by=c("CAPACNUM", "PMD_ANIO"="anio_solicitud")) %>% 
+  left_join(GEO, by="CAPACNUM") %>% 
+  left_join(IMAE_num, by=c("ZPMD_IMAE"="ZCAIMAE")) %>%
+  left_join(quality_reg, by=c("PMD_ANIO"="anio")) %>%
   filter(depto=="01",
-         ZCAIMAE!="SENNIAD HEMO") %>% 
+         ZPMD_IMAE!="SENNIAD HEMO") %>% 
   filter(!is.na(dist18)) # FILTRO PROVISORIO SACANDO PACIENTES CON DIST NA (60 OBS)
+
+DATA <- DATA %>% 
+  group_by(CAPACNUM, fecha) %>% 
+  mutate(row_id = row_number(),
+  ID=paste(CAPACNUM, fecha, row_id, sep = "_"))
 
 mlogit <- dfidx(DATA, 
                  choice="choice",
-                 idnames = c("CAPACNUM", "IMAE"),
+                 idnames = c("ID", "IMAE"),
                  shape = "wide",
                  varying=grep('^medimae|^inst|^dist|^quality|^tipo_imae', names(DATA)), 
                  sep="")   
 
 mlogitdta <- mlogit %>% as.data.frame() %>% unnest_wider(idx)
+
+mlogitdta %>% filter(choice==1, tiene_imae==1) %>% 
+  summarize(inst=mean(inst))
 
 write_dta(mlogitdta, 
           "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/mlogitdta.dta",
