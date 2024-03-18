@@ -16,9 +16,10 @@ GEO <- read_csv("GEO.csv") %>%
          dist35, dist40)
 IMAE_num <- read_csv("IMAE_num.csv")
 quality_reg <- read_csv("quality.csv")
+MENSUALES_HD <- read_sav("~/Proyecto Tesis/Databases/MENSUALES HD.sav")
 
 DATA <- 
-  left_join(SESIONES_HD, INGRESOS_HD2, by=c("CAPACNUM", "PMD_ANIO"="anio_solicitud")) %>% 
+  left_join(MENSUALES_HD, INGRESOS_HD2, by=c("CAPACNUM", "PMD_ANIO"="anio_solicitud")) %>% 
   left_join(GEO, by="CAPACNUM") %>% 
   left_join(IMAE_num, by=c("ZPMD_IMAE"="ZCAIMAE")) %>%
   left_join(quality_reg, by=c("PMD_ANIO"="anio")) %>%
@@ -27,13 +28,13 @@ DATA <-
   filter(!is.na(dist18)) # FILTRO PROVISORIO SACANDO PACIENTES CON DIST NA (60 OBS)
 
 DATA <- DATA %>% 
-  group_by(CAPACNUM, fecha) %>% 
-  mutate(row_id = row_number(),
-  ID=paste(CAPACNUM, fecha, row_id, sep = "_"))
+  mutate(ID=paste(CAPACNUM, PMD_ANIO, PMD_MES, PMD_IMAE, sep = "_"))
+
+n_distinct(DATA$ID)
 
 mlogit <- dfidx(DATA, 
                  choice="choice",
-                 idnames = c("ID", "IMAE"),
+                idnames = c("ID", "PMD_IMAE"),
                  shape = "wide",
                  varying=grep('^medimae|^inst|^dist|^quality|^tipo_imae', names(DATA)), 
                  sep="")   
