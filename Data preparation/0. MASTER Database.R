@@ -19,13 +19,16 @@ quality_reg <- read_csv("quality.csv")
 MENSUALES_HD <- read_sav("~/Proyecto Tesis/Databases/MENSUALES HD.sav")
 
 DATA <- 
-  left_join(MENSUALES_HD, INGRESOS_HD2, by=c("CAPACNUM", "PMD_ANIO"="anio_solicitud")) %>% 
+  left_join(MENSUALES_HD, INGRESOS_HD2, by=c("CAPACNUM")) %>% 
   left_join(GEO, by="CAPACNUM") %>% 
   left_join(IMAE_num, by=c("ZPMD_IMAE"="ZCAIMAE")) %>%
   left_join(quality_reg, by=c("PMD_ANIO"="anio")) %>%
   filter(depto=="01",
          ZPMD_IMAE!="SENNIAD HEMO") %>% 
-  filter(!is.na(dist18)) # FILTRO PROVISORIO SACANDO PACIENTES CON DIST NA (60 OBS)
+  filter(!is.na(dist18))  %>% # FILTRO PROVISORIO SACANDO PACIENTES CON DIST NA (60 OBS)
+  filter(!is.na(long_Google), !is.na(lat_Google),
+         lat_Google<(-34.7),
+         long_Google<(-56))
 
 DATA <- DATA %>% 
   mutate(ID=paste(CAPACNUM, PMD_ANIO, PMD_MES, PMD_IMAE, sep = "_"))
@@ -39,10 +42,26 @@ mlogit <- dfidx(DATA,
                  varying=grep('^medimae|^inst|^dist|^quality|^tipo_imae', names(DATA)), 
                  sep="")   
 
+mlogit <- mlogit %>% mutate(inst=ifelse(is.na(inst), 0, inst),
+                            medimae=ifelse(is.na(medimae), 0, medimae))
+
+table(mlogit$inst, useNA = "always")
+table(mlogit$medimae, useNA = "always")
+
+
 mlogitdta <- mlogit %>% as.data.frame() %>% unnest_wider(idx)
 
-mlogitdta %>% filter(choice==1, tiene_imae==1) %>% 
-  summarize(inst=mean(inst))
+
+library(peakRAM)
+peakRAM({
+  mlogitdta <- mlogit %>% as.data.frame() %>% unnest_wider(idx)
+  
+  write_dta(mlogitdta, 
+            "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/mlogitdta.dta",
+            version = 14,
+            label = attr(data, "label"),
+            strl_threshold = 2045,
+            adjust_tz = TRUE)})
 
 write_dta(mlogitdta, 
           "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/mlogitdta.dta",
