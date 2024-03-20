@@ -11,12 +11,14 @@ source("2. Database GEO.R")
 INGRESOS_HD2 <- read_csv("INGRESOS_HD2.csv")
 GEO <- read_csv("GEO.csv") %>% 
   select(CAPACNUM, lat_Google, long_Google,
-         dist1, dist2, dist7, dist9, dist12, dist13, dist14, dist15, dist16,
+         dist1, dist2, dist9, dist12, dist13, dist14, dist15, dist16,
          dist17, dist18, dist19, dist20, dist21, dist22, dist24, dist33, dist34,
          dist35, dist40)
 IMAE_num <- read_csv("IMAE_num.csv")
 quality_reg <- read_csv("quality.csv")
 MENSUALES_HD <- read_sav("~/Proyecto Tesis/Databases/MENSUALES HD.sav")
+
+a <- DATA %>% select(starts_with("chain"))
 
 DATA <- 
   left_join(MENSUALES_HD, INGRESOS_HD2, by=c("CAPACNUM")) %>% 
@@ -35,11 +37,13 @@ DATA <- DATA %>%
 
 n_distinct(DATA$ID)
 
+a
+
 mlogit <- dfidx(DATA, 
                  choice="choice",
                 idnames = c("ID", "PMD_IMAE"),
                  shape = "wide",
-                 varying=grep('^medimae|^inst|^dist|^quality|^tipo_imae', names(DATA)), 
+                 varying=grep('^medimae|^inst|^dist|^quality|^tipo_imae|^chain', names(DATA)), 
                  sep="")   
 
 mlogit <- mlogit %>% mutate(inst=ifelse(is.na(inst), 0, inst),

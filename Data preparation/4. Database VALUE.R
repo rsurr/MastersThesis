@@ -352,8 +352,7 @@ quality_output_fin <- quality_input_outcome %>%
          quality_output_int13, quality_output_int14, quality_output_int15, quality_output_int16,
          quality_output_int17, quality_output_int18, quality_output_int19, quality_output_int20, 
          quality_output_int21, quality_output_int22, quality_output_int24, quality_output_int33, quality_output_int34,
-         quality_output_int35, quality_output_int40) %>% 
-  mutate(anio=as.factor(anio))
+         quality_output_int35, quality_output_int40)
 
 quality_output_fin <- quality_input_outcome %>%
   ungroup() %>% 
@@ -366,11 +365,11 @@ quality_output_fin <- quality_input_outcome %>%
          quality_output_fin13, quality_output_fin14, quality_output_fin15, quality_output_fin16,
          quality_output_fin17, quality_output_fin18, quality_output_fin19, quality_output_fin20, 
          quality_output_fin21, quality_output_fin22, quality_output_fin24, quality_output_fin33, quality_output_fin34,
-         quality_output_fin35, quality_output_fin40) %>% 
-  mutate(anio=as.factor(anio))
+         quality_output_fin35, quality_output_fin40)
 
 quality_reg <- left_join(quality_input, quality_output_int, by="anio") %>% 
-  left_join(quality_output_fin, by="anio")
+  left_join(quality_output_fin, by="anio") %>% 
+  mutate(anio=as.numeric(as.character(anio)))
 
 write.csv(
   quality_reg,

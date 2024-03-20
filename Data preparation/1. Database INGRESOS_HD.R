@@ -48,9 +48,18 @@ PAC_ACTIVO <- c("Artesano", "Empleado comercio", "Empleado rural", "Empleado ser
                 "Propietario agricultura", "Propietario de comercio", "Propietario industrial",
                 "Propietario servicio", "Tareas del hogar")
 
-INGRESOS_HD <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/INGRESOS HD.sav") %>% 
+INGRESOS_HD <- 
+  read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/INGRESOS HD.sav") %>% 
   #filter(ZCASDEPAR=="MONTEVIDEO") %>% 
   mutate(
+    chain=
+      case_when(ZCAIMAE %in% IMAE_DIAVERUM ~ "DIAVERUM",
+                ZCAIMAE %in% IMAE_CENEU ~ "CENEU",
+                ZCAIMAE %in% IMAE_NEPHROS ~ "NEPHROS",
+                ZCAIMAE %in% IMAE_SARI ~ "SARI",
+                ZCAIMAE %in% IMAE_PUBLICO ~ "PUBLICO",
+                ZCAIMAE %in% IMAE_PRIVADO ~ "PRIVADO",
+                TRUE ~ NA),
     tipo_inst=
       case_when(ZCASINST %in% INST_ASSE ~ "ASSE",
                 ZCASINST %in% INST_IAMCIAMPP ~ "IAMC/IAMPP",
@@ -117,7 +126,8 @@ IMAE_num <- read_csv("IMAE_num.csv")
 MEDICOS <- SESIONES_HD %>%
   left_join(IMAE_num, by=c("ZPMD_IMAE"="ZCAIMAE")) %>% # Column with facility number
   rename(medimae=choice) %>% # Name facility number column "medimae"
-  filter(depto=="01") %>% # Filter for facilities in Montevideo
+  filter(depto=="01", # Filter for facilities in Montevideo
+         ZPMD_IMAE!="SENNIAD HEMO") %>% #Not pediatric
   group_by(ZB1RMEDICO, medimae, PMD_ANIO) %>% 
   summarise(n=n()) %>% # Get the number of sessions of doctors in each facility (per year)
   mutate(medimae=ifelse(medimae=="", NA, medimae), # Put NA if facility number blank
@@ -151,13 +161,14 @@ colnames(imae_inst) <- c("ZCAIMAE", "ZCASINST", "inst", "depto")
 INST <- 
   left_join(INGRESOS_HD, imae_inst, by="ZCASINST", 
             relationship="many-to-many") %>% # Join facility-institution dataset with pacient dataset
-  filter(depto=="01") %>% 
+  filter(depto=="01", # Filter for facilities in Montevideo
+         ZCAIMAE.x!="SENNIAD HEMO") %>% #Not pediatric
   dummy_cols(select_columns = c("inst", "tipo_inst")) %>% 
   group_by(CAPACNUM) %>% 
   summarise_at(vars(starts_with("inst")), funs(.= max(.))) %>% 
   mutate(inst2=0, 
          #inst3=0, inst4=0, inst5=0, inst6=0, 
-         inst7=0, 
+         #inst7=0, 
          #inst8=0, 
          inst9=0,
          #inst10=0, inst11=0, 
@@ -177,11 +188,24 @@ tipo <- INGRESOS_HD %>%
   rename(tipo=tipo_imae, tipo_imae=choice) %>%
   select(tipo_imae, tipo) %>% 
   pivot_wider(names_from = "tipo_imae", values_from = "tipo", names_prefix = "tipo_imae") %>%
-  select(tipo_imae1, tipo_imae2, tipo_imae7, tipo_imae9, tipo_imae12, 
+  select(tipo_imae1, tipo_imae2, tipo_imae9, tipo_imae12, 
          tipo_imae13, tipo_imae14, tipo_imae15, tipo_imae16,
          tipo_imae17, tipo_imae18, tipo_imae19, tipo_imae20, 
          tipo_imae21, tipo_imae22, tipo_imae24, tipo_imae33, tipo_imae34,
          tipo_imae35, tipo_imae40)
+
+chain <- INGRESOS_HD %>%
+  group_by(ZCAIMAE) %>% 
+  summarize(chain=first(chain)) %>%
+  left_join(IMAE_num, by="ZCAIMAE") %>% 
+  rename(cadena=chain, chain=choice) %>%
+  select(cadena, chain) %>% 
+  pivot_wider(names_from = "chain", values_from = "cadena", names_prefix = "chain") %>%
+  select(chain1, chain2, chain9, chain12, 
+         chain13, chain14, chain15, chain16,
+         chain17, chain18, chain19, chain20, 
+         chain21, chain22, chain24, chain33, chain34,
+         chain35, chain40)
 
 INGRESOS_HD2 <- left_join(INGRESOS_HD, MEDICOS, 
                           by=c("ZB1SMEDIC"="ZB1RMEDICO",
@@ -190,10 +214,12 @@ INGRESOS_HD2 <- left_join(INGRESOS_HD, MEDICOS,
   slice_max(CASEDADA, with_ties = FALSE) %>% 
   left_join(INST, by = join_by(CAPACNUM)) %>%
   cbind(tipo) %>% 
+  cbind(chain) %>% 
   select(c(ZCAIMAE, CAPACNUM, 
            num_range("medimae", range = 1:41), 
            num_range("inst", range = 1:41),
            num_range("tipo_imae", range = 1:41),
+           num_range("chain", range = 1:41),
            CASEDADA, CASEXO, ZCASINST, ZCASDEPAR,
            CAFECSOL, ZB1SMEDIC, ZB1SRAZA, ZB1SOCUP0, SCEFPE, SCEFTA,
            B1SNIVEL, CAPACNUM, ZCASINST, anio_solicitud, tiene_imae, 
