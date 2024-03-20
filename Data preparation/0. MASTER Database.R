@@ -55,7 +55,7 @@ mlogitdta <- mlogit %>% as.data.frame() %>% unnest_wider(idx)
 library(peakRAM)
 peakRAM({
   mlogitdta <- mlogit %>% as.data.frame() %>% unnest_wider(idx)
-  
+
   write_dta(mlogitdta, 
             "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/mlogitdta.dta",
             version = 14,
@@ -146,5 +146,3 @@ result_notiene <- DATA %>%
 inner_join(result_tiene, result_notiene, by="ZCAIMAE") %>%
   kable("latex", booktabs = TRUE) %>% 
   writeLines("table.tex")
-
-DATA$

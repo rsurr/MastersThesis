@@ -240,6 +240,12 @@ quality <- left_join(pred_urea, pred_surv, by=c("IMAE", "anio")) %>%
                               tipo_choice=="PRIVADO" ~ "Priv Ins",
                               tipo_choice=="PUBLICO" ~ "Pub Ins"))
 
+quality_input_outcome <- quality %>% 
+  group_by(IMAE, anio)
+  mutate(input=mean(c(URR, ktv, peso), na.rm = T),
+         output_int=mean(c(urea, hemo, fosf), na.rm = T),
+         output_fin=mean(c(surv, comp, sept), na.rm = T))
+
 pred_URRW <- pred_URR %>% 
   pivot_wider(names_from = "anio", values_from = "URR")
 
@@ -321,18 +327,50 @@ quality_summary <- rbind(mean, sd)
 print(xtable::xtable(quality_summary, caption = "Means and Standard Deviations of Variables"), 
       caption.placement = "top", include.rownames = FALSE)
 
-quality_reg <- non_adj_quality %>%
+quality_input <- quality_input_outcome %>%
+  ungroup() %>% 
   left_join(IMAE_num, by=c("IMAE"="ZCAIMAE")) %>% 
   rename(quality=choice) %>%
-  select(anio, URR, quality) %>% 
-  pivot_wider(names_from = "quality", values_from = "URR", names_prefix = "quality") %>%
+  select(anio, input, quality) %>% 
+  pivot_wider(names_from = "quality", values_from = "input", names_prefix = "quality_input") %>%
   select(anio,
-         quality1, quality2, quality9, quality12, 
-         quality13, quality14, quality15, quality16,
-         quality17, quality18, quality19, quality20, 
-         quality21, quality22, quality24, quality33, quality34,
-         quality35, quality40) %>% 
+         quality_input1, quality_input2, quality_input9, quality_input12, 
+         quality_input13, quality_input14, quality_input15, quality_input16,
+         quality_input17, quality_input18, quality_input19, quality_input20, 
+         quality_input21, quality_input22, quality_input24, quality_input33, quality_input34,
+         quality_input35, quality_input40) %>% 
   mutate(anio=as.factor(anio))
+
+quality_output_fin <- quality_input_outcome %>%
+  ungroup() %>% 
+  left_join(IMAE_num, by=c("IMAE"="ZCAIMAE")) %>% 
+  rename(quality=choice) %>%
+  select(anio, output_int, quality) %>% 
+  pivot_wider(names_from = "quality", values_from = "output_int", names_prefix = "quality_output_int") %>%
+  select(anio,
+         quality_output_int1, quality_output_int2, quality_output_int9, quality_output_int12, 
+         quality_output_int13, quality_output_int14, quality_output_int15, quality_output_int16,
+         quality_output_int17, quality_output_int18, quality_output_int19, quality_output_int20, 
+         quality_output_int21, quality_output_int22, quality_output_int24, quality_output_int33, quality_output_int34,
+         quality_output_int35, quality_output_int40) %>% 
+  mutate(anio=as.factor(anio))
+
+quality_output_fin <- quality_input_outcome %>%
+  ungroup() %>% 
+  left_join(IMAE_num, by=c("IMAE"="ZCAIMAE")) %>% 
+  rename(quality=choice) %>%
+  select(anio, output_fin, quality) %>% 
+  pivot_wider(names_from = "quality", values_from = "output_fin", names_prefix = "quality_output_fin") %>%
+  select(anio,
+         quality_output_fin1, quality_output_fin2, quality_output_fin9, quality_output_fin12, 
+         quality_output_fin13, quality_output_fin14, quality_output_fin15, quality_output_fin16,
+         quality_output_fin17, quality_output_fin18, quality_output_fin19, quality_output_fin20, 
+         quality_output_fin21, quality_output_fin22, quality_output_fin24, quality_output_fin33, quality_output_fin34,
+         quality_output_fin35, quality_output_fin40) %>% 
+  mutate(anio=as.factor(anio))
+
+quality_reg <- left_join(quality_input, quality_output_int, by="anio") %>% 
+  left_join(quality_output_fin, by="anio")
 
 write.csv(
   quality_reg,
