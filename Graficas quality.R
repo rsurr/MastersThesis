@@ -3,6 +3,9 @@ labs <- c("Urea", "Survival", "Phosphorus", "Hemoglobin",
           "Urea Reduction Rate", "Kt/V")
 names(labs) <- c("urea", "surv", "fosf", "hemo", "comp", "sept", "peso", "URR", "ktv")
 
+labs_io <- c("Input", "Outcome: intermediate", "Outcome: final")
+names(labs_io) <- c("input", "output_int", "output_fin")
+
 names <- cbind(names(labs), labs)%>% as.data.frame()
 colnames(names) <- c("measure", "Names") 
 
@@ -43,6 +46,24 @@ non_adj_quality %>%
   ) +
   scale_color_viridis_d(end=0.8)
 ggsave("unadjusted.png", dpi = 500, scale=3)
+
+quality_input_outcome %>%
+  pivot_longer(c(input, output_int, output_fin)) %>% 
+  ggplot(aes(y=value, x=tipo_imae2, color=tipo_imae2)) +
+  geom_boxplot() +
+  facet_wrap(~name, scale="free_y", labeller = labeller(name=labs_io)) +
+  coord_cartesian(ylim = c(0, 1)) +  # Restrict y-axis from 0 to 1
+  theme(
+    legend.position = "none",
+    axis.title.x = element_blank(),  # Remove x-axis label
+    axis.title.y = element_blank(),  # Remove x-axis label
+    panel.background = element_rect(fill = "white"),  # Change background to white
+    panel.grid.major = element_line(color = "gray"),  # Change major gridlines to gray
+    panel.grid.minor = element_blank(),  # Remove minor gridlines
+    strip.background = element_blank()  # Remove background from facet titles
+  ) +
+  scale_color_viridis_d(end=0.8)
+ggsave("input_outcome.png", dpi = 500, scale=3)
 
 mean_qual <- quality %>%
   group_by(IMAE) %>% 
