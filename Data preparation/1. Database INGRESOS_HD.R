@@ -209,7 +209,7 @@ chain <- INGRESOS_HD %>%
 
 INGRESOS_HD2 <- left_join(INGRESOS_HD, MEDICOS, 
                           by=c("ZB1SMEDIC"="ZB1RMEDICO",
-                               "anio_solicitud"="PMDANIO")) %>%
+                               "anio_solicitud"="PMD_ANIO")) %>%
   group_by(CAPACNUM) %>% 
   slice_max(CASEDADA, with_ties = FALSE) %>% 
   left_join(INST, by = join_by(CAPACNUM)) %>%
@@ -223,7 +223,8 @@ INGRESOS_HD2 <- left_join(INGRESOS_HD, MEDICOS,
            CASEDADA, CASEXO, ZCASINST, ZCASDEPAR,
            CAFECSOL, ZB1SMEDIC, ZB1SRAZA, ZB1SOCUP0, SCEFPE, SCEFTA,
            B1SNIVEL, CAPACNUM, ZCASINST, anio_solicitud, tiene_imae, 
-           tipo_inst, tipo_pac, ECREAV, tipo_imae)) %>% 
+           tipo_inst, tipo_pac, ECREAV, tipo_imae,
+           AADIASI, AACATP, AAFAV, DDIAG1, SCDESU, mes_solicitud)) %>% 
   rename(tipo_choice=tipo_imae) %>% 
   mutate_at(vars(starts_with(c("inst", "medimae"))), ~replace(., is.na(.), 0))
 
