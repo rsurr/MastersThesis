@@ -22,7 +22,7 @@ occupancy <- read_csv("OCCUPANCY.CSV")
 
 DATA <- 
   left_join(MENSUALES_HD, INGRESOS_HD2, by=c("CAPACNUM")) %>%
-  left_join(occupancy, INGRESOS_HD2, by=c("mes_solicitud", "ZCAIMAE")) %>% 
+  left_join(occupancy, by=c("mes_solicitud", "ZCAIMAE")) %>% 
   left_join(GEO, by="CAPACNUM") %>% 
   left_join(IMAE_num, by=c("ZPMD_IMAE"="ZCAIMAE")) %>%
   left_join(quality_reg, by=c("PMD_ANIO"="anio")) %>%

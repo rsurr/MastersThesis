@@ -1,3 +1,9 @@
+library(readr)
+library(tidyverse)
+library(haven)
+library(fastDummies)
+library(data.table)
+
 occupancy <- INFORMES_IMAES_HD %>%
   left_join(imaes, by="CAIMAE") %>% 
   rowwise() %>% 
@@ -36,6 +42,26 @@ occupancy <- INFORMES_IMAES_HD %>%
                 TRUE ~ NA)) %>% 
   select(Nlmv, Nmjs, Plmv, Pmjs, CAHMSPBN, slack, slack_perc, tipo_imae, fecha3, CAIMAE, ZCAIMAE, mes_solicitud)
 
-write.csv(occupancy, 
+
+DATA <- 
+  left_join(occupancy, INGRESOS_HD2, by=c("mes_solicitud", "ZCAIMAE")) %>% 
+  dummy_cols(select_columns = c("tipo_inst", "SCDESU")) %>% 
+  mutate(ingresos=if_else(is.na(CAPACNUM), 0, 1))
+
+DATA3 <- DATA  %>% 
+  group_by(ZCAIMAE) %>% 
+  summarise(slack=mean(slack, na.rm=T),
+            slack_perc=mean(slack_perc, na.rm=T),
+            tipo_inst_ASSE=mean(tipo_inst_ASSE, na.rm=T),
+            SCDESU_S=mean(SCDESU_S, na.rm=T),
+            ingresos=sum(ingresos),
+            inst_imae=mean(inst_imae, na.rm=T))
+
+INGRESOS_HD2 %>% group_by(ZCAIMAE) %>%
+  summarise(
+            inst_imae=mean(inst_imae, na.rm=T))
+
+
+write.csv(occupancy, writeZCAIMAE.csv(occupancy, 
           "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/OCCUPANCY.csv", 
           row.names=FALSE) 

@@ -17,7 +17,7 @@ IMAE_PUBLICO <- c("HOSPITAL MACIEL", "HOSPITAL DE CLINICAS")
 IMAE_PRIVADO <- c("ASOCIACION ESPAÑOLA", "SMI - SERVICIO MEDICO INTEGRAL",
                   "S.M.Q. SALTO", "COMEPA", "COMEF", "CASMU", "CASA DE GALICIA",
                   "UNIVERSAL", "A.M. DE SAN JOSE", "CAMEC", "CAMEDUR-CENICA", "CAMOC", 
-                  "CANMU", "CASMU", "CENDIME", "COMEF", "COMEPA", "COMERO",
+                  "CANMU", "CENDIME", "COMEF", "COMEPA", "COMERO",
                   "GREMEDA", "HOSPITAL BRITANICO", "HOSPITAL EVANGELICO",
                   "SANATORIO AMERICANO", "HOSPITAL ITALIANO")
 
@@ -52,6 +52,8 @@ INGRESOS_HD <-
   read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/INGRESOS HD.sav") %>% 
   #filter(ZCASDEPAR=="MONTEVIDEO") %>% 
   mutate(
+    ZCAIMAE=if_else(ZCAIMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZCAIMAE),
+    ZCASINST=if_else(ZCAINST=="HOSPITAL ITALIANO", "UNIVERSAL", ZCASINST),
     chain=
       case_when(ZCAIMAE %in% IMAE_DIAVERUM ~ "DIAVERUM",
                 ZCAIMAE %in% IMAE_CENEU ~ "CENEU",
@@ -78,7 +80,7 @@ INGRESOS_HD <-
                 ZCASINST=="S.M.Q. SALTO" ~ 1,
                 ZCASINST=="COMEPA" ~ 1,
                 ZCASINST=="COMEF IAMPP" ~ 1,
-                ZCASINST=="CASMU IAMPP" ~ 1,
+                ZCASINST=="CASMU - IAMPP" ~ 1,
                 ZCASINST=="CASA DE GALICIA" ~ 1,
                 ZCASINST=="COSEM IAMPP" ~ 1,
                 ZCASINST=="UNIVERSAL" ~ 1,
@@ -92,7 +94,7 @@ INGRESOS_HD <-
                 ZCAIMAE=="S.M.Q. SALTO" & ZCASINST=="S.M.Q. SALTO" ~ 1,
                 ZCAIMAE=="COMEPA" & ZCASINST=="COMEPA" ~ 1,
                 ZCAIMAE=="COMEF" & ZCASINST=="COMEF IAMPP" ~ 1,
-                ZCAIMAE=="CASMU" & ZCASINST=="CASMU IAMPP" ~ 1,
+                ZCAIMAE=="CASMU" & ZCASINST=="CASMU - IAMPP" ~ 1,
                 ZCAIMAE=="CASA DE GALICIA" & ZCASINST=="CASA DE GALICIA" ~ 1,
                 ZCAIMAE=="NEPHROS" & ZCASINST=="COSEM IAMPP" ~ 1,
                 
@@ -102,6 +104,20 @@ INGRESOS_HD <-
                 ZCAIMAE =="HOSPITAL DE CLINICAS" & ZCASINST %in% INST_ASSE ~ 1,
                 ZCAIMAE =="HOSPITAL MACIEL" & ZCASINST %in% INST_ASSE ~ 1,
                 TRUE ~ 0),
+    transp=
+      case_when(ZCAIMAE %in% c(IMAE_CENEU, IMAE_NEPHROS, IMAE_DIAVERUM) ~ 1,
+                ZCAIMAE %in% IMAE_PUBLICO ~ 1,
+                ZCAIMAE == "ASOCIACION ESPAÑOLA" ~ 1,
+                ZCAIMAE == "SMI - SERVICIO MEDICO INTEGRAL" ~ 1,
+                ZCAIMAE == "CASMU" ~ 1,
+                ZCAIMAE == "CASA DE GALICIA" ~ 1,
+                ZCAIMAE == "ASOCIACION ESPAÑOLA" ~ 1,
+                ZCAIMAE == "HOSPITAL EVANGELICO" ~ 1,
+                ZCAIMAE == "CANMU" ~ 0,
+                ZCAIMAE == "HOSPITAL BRITANICO" ~ 0,
+                ZCAIMAE == "UNIVERSAL" ~ 0,
+                ZCAIMAE == "HOSPITAL ITALIANO" ~ 0,
+                TRUE ~ NA),
     tipo_pac=
       case_when(ZB1SOCUP0 %in% PAC_ACTIVO ~ "Activo",
                 ZB1SOCUP0 %in% PAC_INACTIVO ~ "Inactivo",
@@ -115,9 +131,7 @@ INGRESOS_HD <-
   group_by(CAPACNUM) %>% 
   slice_max(CASEDADA, with_ties = FALSE)
 
-SESIONES_HD <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/SESIONES HD.sav") 
-
-SESIONES_HD <-  SESIONES_HD %>% 
+SESIONES_HD <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/SESIONES HD.sav") %>% 
   unite("fecha", PMD_ANIO:PMD_MES, sep="-", remove=FALSE) %>% 
   mutate(Date = as.Date(paste(fecha, "-01", sep="")))
 
@@ -147,7 +161,7 @@ a <-
   matrix(c("ASOCIACION ESPAÑOLA", "ASOCIACION ESPAÑOLA", "SMI - SERVICIO MEDICO INTEGRAL",
            "SMI - SERVICIO MEDICO INTEGRAL", "HOSPITAL BRITANICO", "HOSPITAL BRITANICO",
            "S.M.Q. SALTO", "S.M.Q. SALTO", "COMEPA", "COMEPA", "COMEF", "COMEF IAMPP",
-           "CASMU", "CASMU IAMPP", "CASA DE GALICIA", "CASA DE GALICIA", "NEPHROS",
+           "CASMU", "CASMU - IAMPP", "CASA DE GALICIA", "CASA DE GALICIA", "NEPHROS",
            "COSEM IAMPP", "UNIVERSAL", "UNIVERSAL", "HOSPITAL ITALIANO", "UNIVERSAL",
            "HOSPITAL DE CLINICAS", "INST_ASSE", "HOSPITAL MACIEL", "INST_ASSE"),
          ncol=2, byrow=T) %>% as.data.frame()
@@ -173,7 +187,7 @@ INST <-
          inst9=0,
          #inst10=0, inst11=0, 
          inst12=0, 
-         inst14=0,inst16=0, inst17=0, inst19=0, inst20=0, inst21=0, inst24=0, 
+         inst14=0,inst16=0, inst17=0, inst19=0, inst20=0, inst24=0, 
          #inst25=0, inst26=0, inst28=0, inst29=0, inst31=0, inst32=0,
          inst34=0, inst35=0, 
          #inst36=0, inst37=0, inst38=0, inst39=0,inst41=0
@@ -188,11 +202,13 @@ tipo <- INGRESOS_HD %>%
   rename(tipo=tipo_imae, tipo_imae=choice) %>%
   select(tipo_imae, tipo) %>% 
   pivot_wider(names_from = "tipo_imae", values_from = "tipo", names_prefix = "tipo_imae") %>%
-  select(tipo_imae1, tipo_imae2, tipo_imae9, tipo_imae12, 
-         tipo_imae13, tipo_imae14, tipo_imae15, tipo_imae16,
-         tipo_imae17, tipo_imae18, tipo_imae19, tipo_imae20, 
-         tipo_imae21, tipo_imae22, tipo_imae24, tipo_imae33, tipo_imae34,
-         tipo_imae35, tipo_imae40)
+  select(tipo_imae1, tipo_imae2, 
+         tipo_imae9, 
+         tipo_imae12, tipo_imae13, tipo_imae14, 
+         tipo_imae16, tipo_imae17, tipo_imae18, tipo_imae19, tipo_imae20, tipo_imae21, tipo_imae22, 
+         tipo_imae24, 
+         tipo_imae33, tipo_imae34, tipo_imae35, 
+         tipo_imae40)
 
 chain <- INGRESOS_HD %>%
   group_by(ZCAIMAE) %>% 
@@ -202,14 +218,14 @@ chain <- INGRESOS_HD %>%
   select(cadena, chain) %>% 
   pivot_wider(names_from = "chain", values_from = "cadena", names_prefix = "chain") %>%
   select(chain1, chain2, chain9, chain12, 
-         chain13, chain14, chain15, chain16,
+         chain13, chain14, chain16,
          chain17, chain18, chain19, chain20, 
          chain21, chain22, chain24, chain33, chain34,
          chain35, chain40)
 
 INGRESOS_HD2 <- left_join(INGRESOS_HD, MEDICOS, 
                           by=c("ZB1SMEDIC"="ZB1RMEDICO",
-                               "anio_solicitud"="PMD_ANIO")) %>%
+                               "anio_solicitud"="PMDANIO")) %>%
   group_by(CAPACNUM) %>% 
   slice_max(CASEDADA, with_ties = FALSE) %>% 
   left_join(INST, by = join_by(CAPACNUM)) %>%
@@ -224,7 +240,7 @@ INGRESOS_HD2 <- left_join(INGRESOS_HD, MEDICOS,
            CAFECSOL, ZB1SMEDIC, ZB1SRAZA, ZB1SOCUP0, SCEFPE, SCEFTA,
            B1SNIVEL, CAPACNUM, ZCASINST, anio_solicitud, tiene_imae, 
            tipo_inst, tipo_pac, ECREAV, tipo_imae,
-           AADIASI, AACATP, AAFAV, DDIAG1, SCDESU, mes_solicitud)) %>% 
+           AADIASI, AACATP, AAFAV, DDIAG1, SCDESU, mes_solicitud, inst_imae)) %>% 
   rename(tipo_choice=tipo_imae) %>% 
   mutate_at(vars(starts_with(c("inst", "medimae"))), ~replace(., is.na(.), 0))
 

@@ -1,0 +1,79 @@
+---
+title: "Ask the data"
+author: "Rodrigo Surraco"
+date: "2024-04-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1. Los pacientes descompensados se quedan más en el centro de su prestador?
+
+```{r descom}
+
+occupancy <- read_csv("OCCUPANCY.CSV")
+INGRESOS_HD2 <- read_csv("INGRESOS_HD2.csv")
+
+DATA <- 
+  left_join(occupancy, INGRESOS_HD2, by=c("mes_solicitud", "ZCAIMAE")) %>% 
+  dummy_cols(select_columns = c("tipo_inst", "SCDESU")) %>% 
+  mutate(ingresos=if_else(is.na(CAPACNUM), 0, 1))
+
+DATA %>% group_by(SCDESU) %>% summarise(inst_imae=mean(inst_imae, na.rm=T))
+```
+
+No.
+
+# 2. Los centros admiten más pacientes descompensados o de prestadores públicos cuanto más espacio tienen (seleccionan)?
+
+```{r occupancy}
+
+occupancy <- read_csv("OCCUPANCY.CSV")
+INGRESOS_HD2 <- read_csv("INGRESOS_HD2.csv")
+
+DATA <- 
+  left_join(occupancy, INGRESOS_HD2, by=c("mes_solicitud", "ZCAIMAE")) %>% 
+  dummy_cols(select_columns = c("tipo_inst", "SCDESU")) %>% 
+  mutate(ingresos=if_else(is.na(CAPACNUM), 0, 1))
+
+DATA2 <- DATA  %>% 
+  group_by(mes_solicitud, ZCAIMAE) %>% 
+  summarise(slack=mean(slack, na.rm=T),
+            slack_perc=mean(slack_perc, na.rm=T),
+            tipo_inst_ASSE=mean(tipo_inst_ASSE, na.rm=T),
+            SCDESU_S=mean(SCDESU_S, na.rm=T),
+            ingresos=sum(ingresos))
+
+DATA2 %>% ungroup() %>% select(-c(mes_solicitud, ZCAIMAE)) %>% cor(use = "pairwise.complete.obs")
+```
+
+No.
+
+
+# 3. Qué centros admiten más pacientes descompensados y de ASSE?
+
+```{r occupancy}
+
+occupancy <- read_csv("OCCUPANCY.CSV")
+INGRESOS_HD2 <- read_csv("INGRESOS_HD2.csv")
+
+DATA <- 
+  left_join(occupancy, INGRESOS_HD2, by=c("mes_solicitud", "ZCAIMAE")) %>% 
+  dummy_cols(select_columns = c("tipo_inst", "SCDESU")) %>% 
+  mutate(ingresos=if_else(is.na(CAPACNUM), 0, 1))
+
+DATA3 <- DATA  %>% 
+  group_by(ZCAIMAE) %>% 
+  summarise(slack=mean(slack, na.rm=T),
+            slack_perc=mean(slack_perc, na.rm=T),
+            tipo_inst_ASSE=mean(tipo_inst_ASSE, na.rm=T),
+            SCDESU_S=mean(SCDESU_S, na.rm=T),
+            ingresos=sum(ingresos))
+
+DATA3
+```
+
+No.
+
