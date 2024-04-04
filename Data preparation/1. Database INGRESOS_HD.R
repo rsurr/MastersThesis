@@ -50,10 +50,109 @@ PAC_ACTIVO <- c("Artesano", "Empleado comercio", "Empleado rural", "Empleado ser
 
 INGRESOS_HD <- 
   read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/INGRESOS HD.sav") %>% 
-  #filter(ZCASDEPAR=="MONTEVIDEO") %>% 
+  #filter(ZCASDEPAR=="MONTEVIDEO") %>%
+  select(-c(
+    APNEFROD0, APNEFROD1,
+    APCARDD0, APCARDD1, APCARDD2, APCARDD3, APCARDD4,
+    APRESPD0, APRESPD1,
+    APNEURD0, APNEURD1, APNEURD2,
+    APDIGED0, APDIGED1,
+    APINMUD0, APINMUD1,
+    APEMETD0, APEMETD1,
+    APOTROD0, APOTROD1, APOTROD2,
+    APHEMAD0, APHEMAD1,
+    APNEOPD, ZAPNEOPD,
+    SCEFPYM0, SCEFPYM1,
+    SCEFBF0, SCEFBF1,
+    
+  )) %>% 
+  rename(
+    ante=APERSONA,
+    
+    ante_nefro=APNEFRO,
+    ante_nefro_str0=ZAPNEFROD0,
+    ante_nefro_str1=ZAPNEFROD1,
+    ante_nefro_irc_fecha=APIRCF,
+    ante_nefro_1control_fecha=APPCNFEC,
+    ante_nefro_creatinina=APPCNCRE,
+    
+    ante_cardio=APCARD,
+    ante_cardio_str0=ZAPCARDD0,
+    ante_cardio_str1=ZAPCARDD1,
+    ante_cardio_str2=ZAPCARDD2,
+    ante_cardio_str3=ZAPCARDD3,
+    ante_cardio_str4=ZAPCARDD4,
+    
+    ante_respi=APRESP,
+    ante_respi_str0=ZAPRESPD0,
+    ante_respi_str1=ZAPRESPD1,
+    
+    ante_neuro=APNEUR,
+    ante_neuro_str0=ZAPNEURD0,
+    ante_neuro_str1=ZAPNEURD1,
+    ante_neuro_str2=ZAPNEURD2,
+    
+    ante_dige=APDIGE,
+    ante_dige_str0=ZAPDIGED0,
+    ante_dige_str1=ZAPDIGED1,
+    
+    ante_inmu=APINMU,
+    ante_inmu_str0=ZAPINMUD0,
+    ante_inmu_str1=ZAPINMUD1,
+    
+    ante_meta=APEMET,
+    ante_meta_str0=ZAPEMETD0,
+    ante_meta_str1=ZAPEMETD1,
+    
+    ante_otro=APOTRO,
+    ante_otro_str0=ZAPOTROD0, 
+    ante_otro_str1=ZAPOTROD1,
+    ante_otro_str2=ZAPOTROD2,
+    
+    ante_hema=APHEMA,
+    ante_hema_str0=ZAPHEMAD0, 
+    ante_hema_str1=ZAPHEMAD1,
+    
+    ante_neo=APNEOP,
+    ante_neo_str0=APNEOPDE,
+    
+    descom=SCDESU,
+    descom_fecha=SCDESUF,
+    coord=SCINGC,
+    coord_fecha=SCINGF,
+    coord_str=SCINGOB,
+    
+    exa_concien=SCEFCON,
+    exa_piel0=ZSCEFPYM0,
+    exa_piel1=ZSCEFPYM1,
+    exa_nutri=SCEFVN,
+    exa_buco0=ZSCEFBF0,
+    exa_buco1=ZSCEFBF1,
+    exa_linfo=SCEFLG,
+    
+    exa_cardio=SCEFCV,
+    exa_cardio_ritmo=SCEFCVR,
+    exa_cardio_frec=SCEFCVF,
+    exa_cardio_soplos=SCEFCVS,
+    exa_cardio_galope=SCEFCVG,
+    exa_cardio_roces=SCEFCVO,
+    exa_cardio_pulsosperi=SCEFCVP,
+    exa_cardio_varices=SCEFCVV,
+    exa_cardio_trombo=SCEFCVT,
+    exa_cardio_presion=SCEFCVA,
+    exa_cardio_pad=SCEFCVD,
+    
+    exa_pleuro=SCEFPP,
+    exa_abdo=SCEFAB,
+    exa_nervio=SCEFSN,
+    exa_osteo=SCEFOA,
+    exa_peso=SCEFPE,
+    exa_altura=SCEFTA,
+    exa_capacidad=SCDCF
+  ) %>% 
   mutate(
     ZCAIMAE=if_else(ZCAIMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZCAIMAE),
-    ZCASINST=if_else(ZCAINST=="HOSPITAL ITALIANO", "UNIVERSAL", ZCASINST),
+    ZCASINST=if_else(ZCASINST=="HOSPITAL ITALIANO", "UNIVERSAL", ZCASINST),
     chain=
       case_when(ZCAIMAE %in% IMAE_DIAVERUM ~ "DIAVERUM",
                 ZCAIMAE %in% IMAE_CENEU ~ "CENEU",
