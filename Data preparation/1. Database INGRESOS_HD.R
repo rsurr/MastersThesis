@@ -209,7 +209,7 @@ INGRESOS_HD <-
                 ZCASINST=="HOSPITAL ITALIANO" ~ 1,
                 ZCASINST %in% INST_ASSE ~ 1,
                 TRUE ~ 0),
-    inst_imae=
+    imae_inst=
       case_when(ZCAIMAE=="ASOCIACION ESPAÑOLA" & ZCASINST=="ASOCIACION ESPAÑOLA" ~ 1,
                 ZCAIMAE=="SMI - SERVICIO MEDICO INTEGRAL" & ZCASINST=="SMI - SERVICIO MEDICO INTEGRAL" ~ 1,
                 ZCAIMAE=="HOSPITAL BRITANICO" & ZCASINST=="HOSPITAL BRITANICO" ~ 1,
@@ -253,11 +253,17 @@ INGRESOS_HD <-
   group_by(CAPACNUM) %>% 
   slice_max(CASEDADA, with_ties = FALSE)
 
-SESIONES_HD <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/SESIONES HD.sav") %>% 
+SESIONES_HD <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/SESIONES HD.sav") 
+
+SESIONES_HD <- SESIONES_HD %>% 
   unite("fecha", PMD_ANIO:PMD_MES, sep="-", remove=FALSE) %>% 
   mutate(Date = as.Date(paste(fecha, "-01", sep="")))
 
-IMAE_num <- read_csv("IMAE_num.csv")
+SESIONES_HD <- SESIONES_HD %>% 
+  mutate(
+    ZPMD_IMAE=if_else(ZPMD_IMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZPMD_IMAE))
+
+IMAE_num <- read_csv("IMAE_num.csv") %>% filter(ZCAIMAE!="HOSPITAL ITALIANO")
 
 MEDICOS <- SESIONES_HD %>%
   left_join(IMAE_num, by=c("ZPMD_IMAE"="ZCAIMAE")) %>% # Column with facility number
@@ -284,7 +290,7 @@ a <-
            "SMI - SERVICIO MEDICO INTEGRAL", "HOSPITAL BRITANICO", "HOSPITAL BRITANICO",
            "S.M.Q. SALTO", "S.M.Q. SALTO", "COMEPA", "COMEPA", "COMEF", "COMEF IAMPP",
            "CASMU", "CASMU - IAMPP", "CASA DE GALICIA", "CASA DE GALICIA", "NEPHROS",
-           "COSEM IAMPP", "UNIVERSAL", "UNIVERSAL", "HOSPITAL ITALIANO", "UNIVERSAL",
+           "COSEM IAMPP", "UNIVERSAL", "UNIVERSAL",
            "HOSPITAL DE CLINICAS", "INST_ASSE", "HOSPITAL MACIEL", "INST_ASSE"),
          ncol=2, byrow=T) %>% as.data.frame()
 
@@ -296,7 +302,7 @@ colnames(imae_inst) <- c("ZCAIMAE", "ZCASINST", "inst", "depto")
 
 INST <- 
   left_join(INGRESOS_HD, imae_inst, by="ZCASINST", 
-            relationship="many-to-many") %>% # Join facility-institution dataset with pacient dataset
+            relationship="many-to-many") %>% # Join facility-institution dataset with patient dataset
   filter(depto=="01", # Filter for facilities in Montevideo
          ZCAIMAE.x!="SENNIAD HEMO") %>% #Not pediatric
   dummy_cols(select_columns = c("inst", "tipo_inst")) %>% 
@@ -345,6 +351,14 @@ chain <- INGRESOS_HD %>%
          chain21, chain22, chain24, chain33, chain34,
          chain35, chain40)
 
+imaes <- INGRESOS_HD %>% group_by(ZCAIMAE) %>% summarise(CAIMAE=first(CAIMAE))
+
+turnos <- read_sav("~/Proyecto Tesis/Databases/INFORMES_IMAES_HD.sav") %>%
+  left_join(imaes, by="CAIMAE") %>% 
+  group_by(CAANIO, CAMES, ZCAIMAE) %>% 
+  summarise(turnosLMV=mean(c(DNLUT, DNMIT, DNVIT), na.rn=T),
+            turnosMJS=mean(c(DNMAT, DNJUT, DNSAT), na.rn=T))
+
 INGRESOS_HD2 <- left_join(INGRESOS_HD, MEDICOS, 
                           by=c("ZB1SMEDIC"="ZB1RMEDICO",
                                "anio_solicitud"="PMDANIO")) %>%
@@ -359,10 +373,10 @@ INGRESOS_HD2 <- left_join(INGRESOS_HD, MEDICOS,
            num_range("tipo_imae", range = 1:41),
            num_range("chain", range = 1:41),
            CASEDADA, CASEXO, ZCASINST, ZCASDEPAR,
-           CAFECSOL, ZB1SMEDIC, ZB1SRAZA, ZB1SOCUP0, SCEFPE, SCEFTA,
+           CAFECSOL, ZB1SMEDIC, ZB1SRAZA, ZB1SOCUP0, exa_peso, exa_altura,
            B1SNIVEL, CAPACNUM, ZCASINST, anio_solicitud, tiene_imae, 
-           tipo_inst, tipo_pac, ECREAV, tipo_imae,
-           AADIASI, AACATP, AAFAV, DDIAG1, SCDESU, mes_solicitud, inst_imae)) %>% 
+           tipo_inst, tipo_pac, estu_creatinemia, tipo_imae,
+           AADIASI, AACATP, AAFAV, DDIAG1, descom, coord, mes_solicitud, imae_inst)) %>% 
   rename(tipo_choice=tipo_imae) %>% 
   mutate_at(vars(starts_with(c("inst", "medimae"))), ~replace(., is.na(.), 0))
 

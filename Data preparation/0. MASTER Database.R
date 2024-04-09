@@ -11,21 +11,22 @@ source("2. Database GEO.R")
 INGRESOS_HD2 <- read_csv("INGRESOS_HD2.csv")
 GEO <- read_csv("GEO.csv") %>% 
   select(CAPACNUM, lat_Google, long_Google,
-         dist1, dist2, dist9, dist12, dist13, dist14, dist15, dist16,
+         dist1, dist2, dist9, dist12, dist13, dist14, dist16,
          dist17, dist18, dist19, dist20, dist21, dist22, dist24, dist33, dist34,
          dist35, dist40)
-IMAE_num <- read_csv("IMAE_num.csv")
+IMAE_num <- read_csv("IMAE_num.csv") %>% filter(ZCAIMAE!="HOSPITAL ITALIANO")
+occupancy <- read_csv("OCCUPANCY.CSV")
 quality_reg <- read_csv("quality.csv")
 MENSUALES_HD <- read_sav("~/Proyecto Tesis/Databases/MENSUALES HD.sav") %>% 
-  select(CAPACNUM, PMD_IMAE, ZPMD_IMAE, PMD_ANIO, PMD_MES)
+  select(CAPACNUM, PMD_IMAE, ZPMD_IMAE, PMD_ANIO, PMD_MES) %>% 
+  mutate(
+    ZPMD_IMAE=if_else(ZPMD_IMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZPMD_IMAE))
 occupancy <- read_csv("OCCUPANCY.CSV")
 
 DATA <- 
   left_join(MENSUALES_HD, INGRESOS_HD2, by=c("CAPACNUM")) %>%
-  left_join(occupancy, by=c("mes_solicitud", "ZCAIMAE")) %>% 
   left_join(GEO, by="CAPACNUM") %>% 
   left_join(IMAE_num, by=c("ZPMD_IMAE"="ZCAIMAE")) %>%
-  left_join(quality_reg, by=c("PMD_ANIO"="anio")) %>%
   left_join(quality_reg, by=c("PMD_ANIO"="anio")) %>%
   filter(depto=="01",
          ZPMD_IMAE!="SENNIAD HEMO") %>% 
@@ -34,12 +35,10 @@ DATA <-
          lat_Google<(-34.7),
          long_Google<(-56))
 
+aborrar <- DATA %>% select(starts_with("medimae"))
+
 DATA <- DATA %>% 
   mutate(ID=paste(CAPACNUM, PMD_ANIO, PMD_MES, PMD_IMAE, sep = "_"))
-
-n_distinct(DATA$ID)
-
-a
 
 mlogit <- dfidx(DATA, 
                  choice="choice",

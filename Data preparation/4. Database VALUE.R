@@ -7,10 +7,16 @@ library(broom)
 
 PACIENTES <- 
   read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/PACIENTES.sav")
-MENSUALES_HD <- 
-  read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/MENSUALES HD.sav")
+MENSUALES_HD <- read_sav("~/Proyecto Tesis/Databases/MENSUALES HD.sav") %>% 
+  select(CAPACNUM, PMD_IMAE, ZPMD_IMAE, PMD_ANIO, PMD_MES, 
+         DDIAB, DCISQ, DEVP, EMAZOEM, ESFOSF, EMHEMOG, 
+         COMP, COMP1, COMP2, COMP3, ESAZOPR1, ESAZOPR2, ESAZOPO1, ESKTV,
+         ZPMD_ESTADO
+         ) %>% 
+  mutate(
+    ZPMD_IMAE=if_else(ZPMD_IMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZPMD_IMAE))
 INGRESOS_HD2 <- read_csv("INGRESOS_HD2.csv")
-IMAE_num <- read_csv("IMAE_num.csv")
+IMAE_num <- read_csv("IMAE_num.csv") %>% filter(ZCAIMAE!="HOSPITAL ITALIANO")
 SESIONES_HD <- 
   read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/SESIONES HD.sav") 
 
@@ -30,6 +36,10 @@ cod_sept <- c(184010162, 184010183, 184010159, 184010160, 184010161)
 
 base <- left_join(MENSUALES_HD, PACIENTES, by="CAPACNUM") %>% 
   left_join(INGRESOS_HD2, by="CAPACNUM") %>%
+  rename(imae_ingresos=ZCAIMAE,
+         ZCAIMAE=ZPMD_IMAE) %>%
+  #mutate(
+  #  ZCAIMAE=if_else(ZCAIMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZCAIMAE)) %>% 
   left_join(IMAE_num, by="ZCAIMAE") %>% 
   left_join(dife_peso, by=c("PMD_ANIO", "PMD_MES", "CAPACNUM")) %>% 
   filter(depto=="01",
@@ -62,7 +72,7 @@ base <- left_join(MENSUALES_HD, PACIENTES, by="CAPACNUM") %>%
          CAPACNUM=as.factor(CAPACNUM)) %>% 
   mutate(urea17=case_when(EMAZOEM<1.7 ~ 1,
                           EMAZOEM>=1.7 ~ 0),
-         BMI=SCEFPE/(SCEFTA/100)**2,
+         BMI=exa_peso/(exa_altura/100)**2,
          fosf55=case_when(ESFOSF<5.5 ~ 1,
                           ESFOSF>=5.5 ~ 0),
          #pas140=case_when(EMAZOEM<1.7 ~ 1,
@@ -97,6 +107,9 @@ base <- left_join(MENSUALES_HD, PACIENTES, by="CAPACNUM") %>%
   arrange(PMD_ANIO, PMD_MES) %>% 
   mutate(meses=row_number())
 
+aborrar <- base %>% select(c(ZCAIMAE, ZPMD_IMAE)) %>% mutate(misma=if_else(ZCAIMAE==ZPMD_IMAE, 1, 0))
+
+
 # Reorder "anio" in increasing order
 base$anio <- factor(base$PMD_ANIO, levels = sort(unique(base$PMD_ANIO)))
 
@@ -113,7 +126,7 @@ m_urea <- lm(urea17 ~ - 1 +
                CASEDADA + meses + ocupado +
                PAC_SEXO_F + 
                ZB1SRAZA_NEGRA + ZB1SRAZA_OTRA +
-               DDIAB_S + DCISQ_S + DEVP_S + ECREAV + 
+               DDIAB_S + DCISQ_S + DEVP_S + estu_creatinemia + 
                B1SNIVEL_Primaria + B1SNIVEL_Secundaria + B1SNIVEL_Universidad +
                tipo_inst_IAMCIAMPP + tipo_inst_SEGUROPRIVADO + tipo_inst_CORPORATIVO +
                ZCAIMAE:anio, 
@@ -123,7 +136,7 @@ m_hemo <- lm(hemo10 ~ - 1 +
                CASEDADA + meses + ocupado +
                PAC_SEXO_F + 
                ZB1SRAZA_NEGRA + ZB1SRAZA_OTRA +
-               DDIAB_S + DCISQ_S + DEVP_S + ECREAV + 
+               DDIAB_S + DCISQ_S + DEVP_S + estu_creatinemia + 
                B1SNIVEL_Primaria + B1SNIVEL_Secundaria + B1SNIVEL_Universidad +
                tipo_inst_IAMCIAMPP + tipo_inst_SEGUROPRIVADO + tipo_inst_CORPORATIVO +
                ZCAIMAE:anio, 
@@ -133,7 +146,7 @@ m_fosf <- lm(fosf55 ~ - 1 +
                CASEDADA + meses + ocupado +
                PAC_SEXO_F + 
                ZB1SRAZA_NEGRA + ZB1SRAZA_OTRA +
-               DDIAB_S + DCISQ_S + DEVP_S + ECREAV + 
+               DDIAB_S + DCISQ_S + DEVP_S + estu_creatinemia + 
                B1SNIVEL_Primaria + B1SNIVEL_Secundaria + B1SNIVEL_Universidad +
                tipo_inst_IAMCIAMPP + tipo_inst_SEGUROPRIVADO + tipo_inst_CORPORATIVO +
                ZCAIMAE:anio, 
@@ -143,7 +156,7 @@ m_surv <- lm(surv ~ - 1 +
                 CASEDADA + meses + ocupado +
                 PAC_SEXO_F + 
                 ZB1SRAZA_NEGRA + ZB1SRAZA_OTRA +
-                DDIAB_S + DCISQ_S + DEVP_S + ECREAV + 
+                DDIAB_S + DCISQ_S + DEVP_S + estu_creatinemia + 
                 B1SNIVEL_Primaria + B1SNIVEL_Secundaria + B1SNIVEL_Universidad +
                 tipo_inst_IAMCIAMPP + tipo_inst_SEGUROPRIVADO + tipo_inst_CORPORATIVO +
                 ZCAIMAE:anio, 
@@ -153,7 +166,7 @@ m_comp <- lm(comp ~ - 1 +
                CASEDADA + meses + ocupado +
                PAC_SEXO_F + 
                ZB1SRAZA_NEGRA + ZB1SRAZA_OTRA +
-               DDIAB_S + DCISQ_S + DEVP_S + ECREAV + 
+               DDIAB_S + DCISQ_S + DEVP_S + estu_creatinemia + 
                B1SNIVEL_Primaria + B1SNIVEL_Secundaria + B1SNIVEL_Universidad +
                tipo_inst_IAMCIAMPP + tipo_inst_SEGUROPRIVADO + tipo_inst_CORPORATIVO +
                ZCAIMAE:anio, 
@@ -163,7 +176,7 @@ m_sept <- lm(sept ~ - 1 +
                CASEDADA + meses + ocupado +
                PAC_SEXO_F + 
                ZB1SRAZA_NEGRA + ZB1SRAZA_OTRA +
-               DDIAB_S + DCISQ_S + DEVP_S + ECREAV + 
+               DDIAB_S + DCISQ_S + DEVP_S + estu_creatinemia + 
                B1SNIVEL_Primaria + B1SNIVEL_Secundaria + B1SNIVEL_Universidad +
                tipo_inst_IAMCIAMPP + tipo_inst_SEGUROPRIVADO + tipo_inst_CORPORATIVO +
                ZCAIMAE:anio, 
@@ -173,7 +186,7 @@ m_peso <- lm(peso ~ - 1 +
                CASEDADA + meses + ocupado +
                PAC_SEXO_F + 
                ZB1SRAZA_NEGRA + ZB1SRAZA_OTRA +
-               DDIAB_S + DCISQ_S + DEVP_S + ECREAV + 
+               DDIAB_S + DCISQ_S + DEVP_S + estu_creatinemia + 
                B1SNIVEL_Primaria + B1SNIVEL_Secundaria + B1SNIVEL_Universidad +
                tipo_inst_IAMCIAMPP + tipo_inst_SEGUROPRIVADO + tipo_inst_CORPORATIVO +
                ZCAIMAE:anio, 
@@ -183,7 +196,7 @@ m_URR <- lm(URR65 ~ - 1 +
                CASEDADA + meses + ocupado +
                PAC_SEXO_F + 
                ZB1SRAZA_NEGRA + ZB1SRAZA_OTRA +
-               DDIAB_S + DCISQ_S + DEVP_S + ECREAV + 
+               DDIAB_S + DCISQ_S + DEVP_S + estu_creatinemia + 
                B1SNIVEL_Primaria + B1SNIVEL_Secundaria + B1SNIVEL_Universidad +
                tipo_inst_IAMCIAMPP + tipo_inst_SEGUROPRIVADO + tipo_inst_CORPORATIVO +
                ZCAIMAE:anio, 
@@ -193,7 +206,7 @@ m_ktv <- lm(ktv12 ~ - 1 +
               CASEDADA + meses + ocupado +
               PAC_SEXO_F + 
               ZB1SRAZA_NEGRA + ZB1SRAZA_OTRA +
-              DDIAB_S + DCISQ_S + DEVP_S + ECREAV + 
+              DDIAB_S + DCISQ_S + DEVP_S + estu_creatinemia + 
               B1SNIVEL_Primaria + B1SNIVEL_Secundaria + B1SNIVEL_Universidad +
               tipo_inst_IAMCIAMPP + tipo_inst_SEGUROPRIVADO + tipo_inst_CORPORATIVO +
               ZCAIMAE:anio, 
@@ -227,13 +240,13 @@ pred_peso <- get_all_predictions(m_peso, base) %>% rename(peso=Prediction)
 pred_URR <- get_all_predictions(m_URR, base) %>% rename(URR=Prediction)
 pred_ktv <- get_all_predictions(m_ktv, base) %>% rename(ktv=Prediction)
 
-quality <- left_join(pred_urea, pred_surv, by=c("IMAE", "anio")) %>% 
+quality <- left_join(pred_URR, pred_surv, by=c("IMAE", "anio")) %>% 
   left_join(pred_fosf, by=c("IMAE", "anio")) %>%
   left_join(pred_hemo, by=c("IMAE", "anio")) %>%
   left_join(pred_comp, by=c("IMAE", "anio")) %>%
   left_join(pred_sept, by=c("IMAE", "anio")) %>%
   left_join(pred_peso, by=c("IMAE", "anio")) %>%
-  left_join(pred_URR, by=c("IMAE", "anio")) %>%
+  left_join(pred_urea, by=c("IMAE", "anio")) %>%
   left_join(pred_ktv, by=c("IMAE", "anio")) %>%
   left_join(tipo_imae, by=c("IMAE"="ZCAIMAE")) %>%
   mutate(tipo_imae2=case_when(tipo_choice=="INDEPENDIENTE" ~ "Indep",
@@ -241,7 +254,7 @@ quality <- left_join(pred_urea, pred_surv, by=c("IMAE", "anio")) %>%
                               tipo_choice=="PUBLICO" ~ "Pub Ins"))
 
 quality_input_outcome <- quality %>% 
-  group_by(IMAE, anio)
+  group_by(IMAE, anio) %>% 
   mutate(input=mean(c(URR, ktv, peso), na.rm = T),
          output_int=mean(c(urea, hemo, fosf), na.rm = T),
          output_fin=mean(c(surv, comp, sept), na.rm = T))
@@ -257,12 +270,14 @@ URR <- base %>% group_by(ZCAIMAE, anio) %>% summarise(URR=mean(URR, na.rm=T)) %>
 
 quality %>% 
   group_by(tipo_imae2) %>% 
-  summarise(Urea=mean(urea, na.rm = T)*100,
-            Survival=mean(surv, na.rm = T)*100,
-            Phosphorus=mean(fosf, na.rm = T)*100,
-            Hemoglobin=mean(hemo, na.rm = T)*100,
-            Complication=mean(comp, na.rm = T)*100,
-            "Septic infections"=mean(sept, na.rm = T)*100) %>% as.data.frame()
+  summarise(
+    Urea=mean(urea, na.rm = T)*100,
+    Survival=mean(surv, na.rm = T)*100,
+    Phosphorus=mean(fosf, na.rm = T)*100,
+    Hemoglobin=mean(hemo, na.rm = T)*100,
+    Complication=mean(comp, na.rm = T)*100,
+    "Septic infections"=mean(sept, na.rm = T)*100
+  ) %>% as.data.frame()
 
 non_adj_quality <- base %>% 
   group_by(ZCAIMAE, anio) %>% 
@@ -327,48 +342,67 @@ quality_summary <- rbind(mean, sd)
 print(xtable::xtable(quality_summary, caption = "Means and Standard Deviations of Variables"), 
       caption.placement = "top", include.rownames = FALSE)
 
-quality_input <- quality_input_outcome %>%
+quality_input <- quality %>%
   ungroup() %>% 
   left_join(IMAE_num, by=c("IMAE"="ZCAIMAE")) %>% 
   rename(quality=choice) %>%
-  select(anio, input, quality) %>% 
-  pivot_wider(names_from = "quality", values_from = "input", names_prefix = "quality_input") %>%
+  select(anio, URR, quality) %>% 
+  pivot_wider(names_from = "quality", values_from = "URR", names_prefix = "quality_input") %>%
   select(anio,
          quality_input1, quality_input2, quality_input9, quality_input12, 
-         quality_input13, quality_input14, quality_input15, quality_input16,
+         quality_input13, quality_input14, quality_input16,
          quality_input17, quality_input18, quality_input19, quality_input20, 
          quality_input21, quality_input22, quality_input24, quality_input33, quality_input34,
          quality_input35, quality_input40) %>% 
   mutate(anio=as.factor(anio))
 
-quality_output_fin <- quality_input_outcome %>%
-  ungroup() %>% 
-  left_join(IMAE_num, by=c("IMAE"="ZCAIMAE")) %>% 
-  rename(quality=choice) %>%
-  select(anio, output_int, quality) %>% 
-  pivot_wider(names_from = "quality", values_from = "output_int", names_prefix = "quality_output_int") %>%
-  select(anio,
-         quality_output_int1, quality_output_int2, quality_output_int9, quality_output_int12, 
-         quality_output_int13, quality_output_int14, quality_output_int15, quality_output_int16,
-         quality_output_int17, quality_output_int18, quality_output_int19, quality_output_int20, 
-         quality_output_int21, quality_output_int22, quality_output_int24, quality_output_int33, quality_output_int34,
-         quality_output_int35, quality_output_int40)
+#quality_output_fin <- quality_input_outcome %>%
+#  ungroup() %>% 
+#  left_join(IMAE_num, by=c("IMAE"="ZCAIMAE")) %>% 
+#  rename(quality=choice) %>%
+#  select(anio, output_int, quality) %>% 
+#  pivot_wider(names_from = "quality", values_from = "output_int", names_prefix = "quality_output_int") %>%
+#  select(anio,
+#         quality_output_int1, quality_output_int2, quality_output_int9, quality_output_int12, 
+#         quality_output_int13, quality_output_int14, quality_output_int15, quality_output_int16,
+#         quality_output_int17, quality_output_int18, quality_output_int19, quality_output_int20, 
+#         quality_output_int21, quality_output_int22, quality_output_int24, quality_output_int33, quality_output_int34,
+#         quality_output_int35, quality_output_int40)
 
-quality_output_fin <- quality_input_outcome %>%
-  ungroup() %>% 
-  left_join(IMAE_num, by=c("IMAE"="ZCAIMAE")) %>% 
-  rename(quality=choice) %>%
-  select(anio, output_fin, quality) %>% 
-  pivot_wider(names_from = "quality", values_from = "output_fin", names_prefix = "quality_output_fin") %>%
-  select(anio,
-         quality_output_fin1, quality_output_fin2, quality_output_fin9, quality_output_fin12, 
-         quality_output_fin13, quality_output_fin14, quality_output_fin15, quality_output_fin16,
-         quality_output_fin17, quality_output_fin18, quality_output_fin19, quality_output_fin20, 
-         quality_output_fin21, quality_output_fin22, quality_output_fin24, quality_output_fin33, quality_output_fin34,
-         quality_output_fin35, quality_output_fin40)
 
-quality_reg <- left_join(quality_input, quality_output_int, by="anio") %>% 
-  left_join(quality_output_fin, by="anio") %>% 
+source("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/Data preparation/Functions.R")
+out_urea <- create_quality_output(quality, "urea")
+out_surv <- create_quality_output(quality, "surv")
+out_fosf <- create_quality_output(quality, "fosf")
+out_hemo <- create_quality_output(quality, "hemo")
+out_comp <- create_quality_output(quality, "comp")
+out_sept <- create_quality_output(quality, "sept")
+out_peso <- create_quality_output(quality, "peso")
+out_URR <- create_quality_output(quality, "URR")
+out_ktv <- create_quality_output(quality, "ktv")
+
+
+#quality_output <- quality %>%
+#  ungroup() %>% 
+#  left_join(IMAE_num, by=c("IMAE"="ZCAIMAE")) %>% 
+#  rename(quality=choice) %>%
+#  select(anio, surv, quality) %>% 
+#  pivot_wider(names_from = "quality", values_from = "surv", names_prefix = "quality_output") %>%
+#  select(anio,
+#         quality_output1, quality_output2, quality_output9, quality_output12, 
+#         quality_output13, quality_output14, quality_output16,
+#         quality_output17, quality_output18, quality_output19, quality_output20, 
+#         quality_output21, quality_output22, quality_output24, quality_output33, quality_output34,
+#         quality_output35, quality_output40)
+
+quality_reg <- left_join(out_urea, out_surv, by="anio") %>% 
+  left_join(out_fosf, by="anio") %>% 
+  left_join(out_hemo, by="anio") %>% 
+  left_join(out_comp, by="anio") %>% 
+  left_join(out_sept, by="anio") %>% 
+  left_join(out_peso, by="anio") %>% 
+  left_join(out_URR, by="anio") %>% 
+  left_join(out_ktv, by="anio") %>% 
   mutate(anio=as.numeric(as.character(anio)))
 
 write.csv(
@@ -383,7 +417,7 @@ stargazer(m_urea, m_hemo, m_fosf, m_surv, m_comp,
                      keep = c("CASEDADA", "meses", "ocupado",
                                 "PAC_SEXO_F",
                                 "ZB1SRAZA_NEGRA", "ZB1SRAZA_OTRA",
-                                "DDIAB_S", "DCISQ_S", "DEVP_S", "ECREAV",
+                                "DDIAB_S", "DCISQ_S", "DEVP_S", "estu_creatinemia",
                                 "B1SNIVEL_Primaria", "B1SNIVEL_Secundaria", "B1SNIVEL_Universidad",
                               "tipo_inst_IAMCIAMPP", "tipo_inst_SEGUROPRIVADO", "tipo_inst_CORPORATIVO"), 
                      df=FALSE, omit.stat = c("ser","f", "rsq"), no.space = TRUE,

@@ -26,7 +26,7 @@ get_all_predictions <- function(model, data) {
     tipo_inst_SEGUROPRIVADO = mean(base$tipo_inst_SEGUROPRIVADO, na.rm = TRUE),
     tipo_inst_CORPORATIVO = mean(base$tipo_inst_CORPORATIVO, na.rm = TRUE),
     ocupado = mean(base$ocupado, na.rm = TRUE),
-    ECREAV = mean(base$ECREAV, na.rm = TRUE)
+    estu_creatinemia = mean(base$estu_creatinemia, na.rm = TRUE)
     )
   
   # Initialize an empty data frame to store predictions
@@ -69,6 +69,25 @@ extract_coefficients <- function(model) {
   return(coef_df)
 }
 
-# Example usage:
-# Assuming 'fe_ktv' is your model object
-coefficients_df <- extract_coefficients(fe_ktv)
+
+library(dplyr)
+library(tidyr)
+
+library(dplyr)
+library(tidyr)
+
+create_quality_output <- function(quality, input) {
+  output <- quality %>%
+    ungroup() %>% 
+    left_join(IMAE_num, by=c("IMAE"="ZCAIMAE")) %>% 
+    rename(quality=choice) %>%
+    select(anio, {{input}}, quality) %>% 
+    pivot_wider(names_from = "quality", values_from = {{input}}, names_prefix = {{input}}) %>%
+    select(anio,
+           starts_with({{input}}))
+  
+  return(output)
+}
+
+
+
