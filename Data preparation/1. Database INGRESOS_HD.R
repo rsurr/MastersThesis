@@ -148,7 +148,30 @@ INGRESOS_HD <-
     exa_osteo=SCEFOA,
     exa_peso=SCEFPE,
     exa_altura=SCEFTA,
-    exa_capacidad=SCDCF
+    exa_capacidad=SCDCF,
+    
+    med=EMEDIC,
+    med_epo=EMERI,
+    med_hierro_vo=EMHIEVO,
+    med_hierro_iv=EMHIEIV,
+    med_ieca=EMIECA,
+    med_araii=EMARAII,
+    med_esta=EMESTA,
+    med_antia_pla=EMAPLA,
+    med_calcio=EMCAL,
+    med_capto_fos=EMCFOS,
+    med_vitd=EMVITD,
+    
+    estu_azoemia=EAZOV,
+    estu_azoemia_fecha=EAZOF,
+    estu_creatinemia=ECREAV,
+    estu_creatinemia_fecha=ECREAF,
+    estu_cicreatina=ECIV,
+    estu_cicreatina_fecha=ECIF,
+    estu_iono_na=EIONONA,
+    estu_iono_k=EIONOK,
+    estu_iono_ca=EIONOCA,
+    estu_iono_fecha=EIONOF
   ) %>% 
   mutate(
     ZCAIMAE=if_else(ZCAIMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZCAIMAE),
