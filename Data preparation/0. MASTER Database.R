@@ -23,7 +23,41 @@ MENSUALES_HD <- read_sav("~/Proyecto Tesis/Databases/MENSUALES HD.sav") %>%
     ZPMD_IMAE=if_else(ZPMD_IMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZPMD_IMAE))
 occupancy <- read_csv("OCCUPANCY.CSV")
 
-DATA <- 
+# BASE INGRESOS
+
+DATA_INGRESOS <- INGRESOS_HD2 %>% 
+  left_join(GEO, by="CAPACNUM") %>% 
+  left_join(IMAE_num, by=c("ZCAIMAE"="ZCAIMAE")) %>%
+  left_join(quality_reg, by=c("anio_solicitud"="anio")) %>%
+  filter(depto=="01",
+         ZCAIMAE!="SENNIAD HEMO") %>% 
+  filter(!is.na(dist18))  %>% # FILTRO PROVISORIO SACANDO PACIENTES CON DIST NA (60 OBS)
+  filter(!is.na(long_Google), !is.na(lat_Google),
+         lat_Google<(-34.7),
+         long_Google<(-56))
+
+mlogit_INGRESOS <- dfidx(DATA_INGRESOS, 
+                 choice="choice",
+                 idnames = c("CAPACNUM", "ZCAIMAE"),
+                 shape = "long",
+                 varying=grep('^medimae|^inst|^dist|^tipo_imae|^chain|^transp|^turnos|^urea|^surv|^URR|^fosf|^hemo|^comp|^sept|^peso|^ktv', names(DATA_INGRESOS)), 
+                 sep="")  
+
+
+library(peakRAM)
+peakRAM({
+  mlogitdta <- mlogit_INGRESOS %>% as.data.frame() %>% unnest_wider(idx)
+  
+  write_dta(mlogitdta, 
+            "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/mlogitdta.dta",
+            version = 14,
+            label = attr(data, "label"),
+            strl_threshold = 2045,
+            adjust_tz = TRUE)})
+
+unique(DATAi$ZCAIMAE)
+
+DATAm <- 
   left_join(MENSUALES_HD, INGRESOS_HD2, by=c("CAPACNUM")) %>%
   left_join(GEO, by="CAPACNUM") %>% 
   left_join(IMAE_num, by=c("ZPMD_IMAE"="ZCAIMAE")) %>%
@@ -35,17 +69,12 @@ DATA <-
          lat_Google<(-34.7),
          long_Google<(-56))
 
-aborrar <- DATA %>% select(starts_with("medimae"))
+
+aborrar <- DATA_INGRESOS %>% select(starts_with("turnos"))
 
 DATA <- DATA %>% 
   mutate(ID=paste(CAPACNUM, PMD_ANIO, PMD_MES, PMD_IMAE, sep = "_"))
 
-mlogit <- dfidx(DATA, 
-                 choice="choice",
-                idnames = c("ID", "PMD_IMAE"),
-                 shape = "wide",
-                 varying=grep('^medimae|^inst|^dist|^quality|^tipo_imae|^chain', names(DATA)), 
-                 sep="")   
 
 mlogit <- mlogit %>% mutate(inst=ifelse(is.na(inst), 0, inst),
                             medimae=ifelse(is.na(medimae), 0, medimae))
@@ -57,16 +86,7 @@ table(mlogit$medimae, useNA = "always")
 mlogitdta <- mlogit %>% as.data.frame() %>% unnest_wider(idx)
 
 
-library(peakRAM)
-peakRAM({
-  mlogitdta <- mlogit %>% as.data.frame() %>% unnest_wider(idx)
 
-  write_dta(mlogitdta, 
-            "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/mlogitdta.dta",
-            version = 14,
-            label = attr(data, "label"),
-            strl_threshold = 2045,
-            adjust_tz = TRUE)})
 
 write_dta(mlogitdta, 
           "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/mlogitdta.dta",

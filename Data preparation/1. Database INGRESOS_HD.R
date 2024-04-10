@@ -353,6 +353,15 @@ chain <- INGRESOS_HD %>%
          chain21, chain22, chain24, chain33, chain34,
          chain35, chain40)
 
+transp <- INGRESOS_HD %>%
+  group_by(ZCAIMAE) %>% 
+  summarize(transp=first(transp)) %>%
+  left_join(IMAE_num, by="ZCAIMAE") %>% 
+  filter(ZCAIMAE!="SENNIAD HEMO") %>% 
+  filter(depto=="01")   %>% 
+  select(choice, transp) %>% 
+  pivot_wider(names_from = "choice", values_from = "transp", names_prefix = "transp")
+
 imaes <- INGRESOS_HD %>% group_by(ZCAIMAE) %>% summarise(CAIMAE=first(CAIMAE))
 
 turnos <- read_sav("~/Proyecto Tesis/Databases/INFORMES_IMAES_HD.sav") %>%
@@ -367,6 +376,7 @@ turnos <- read_sav("~/Proyecto Tesis/Databases/INFORMES_IMAES_HD.sav") %>%
          mes=format(Date, "%Y-%m")) %>%
   group_by(mes) %>% 
   left_join(IMAE_num, by="ZCAIMAE") %>% 
+  filter(ZCAIMAE!="SENNIAD HEMO") %>% 
   filter(depto=="01") %>% 
   select(turnos, choice) %>% 
   pivot_wider(names_from = "choice", values_from = "turnos", names_prefix = "turnos")
@@ -380,12 +390,14 @@ INGRESOS_HD2 <- left_join(INGRESOS_HD, MEDICOS,
   left_join(turnos, by = c("mes_solicitud"="mes"), keep = T) %>% 
   cbind(tipo) %>% 
   cbind(chain) %>% 
+  cbind(transp) %>%
   select(c(ZCAIMAE, CAPACNUM, 
            num_range("medimae", range = 1:41), 
            num_range("inst", range = 1:41),
            num_range("tipo_imae", range = 1:41),
            num_range("chain", range = 1:41),
            num_range("turnos", range = 1:41),
+           num_range("transp", range = 1:41),
            CASEDADA, CASEXO, ZCASINST, ZCASDEPAR,
            CAFECSOL, ZB1SMEDIC, ZB1SRAZA, ZB1SOCUP0, exa_peso, exa_altura,
            B1SNIVEL, CAPACNUM, ZCASINST, anio_solicitud, tiene_imae, 
