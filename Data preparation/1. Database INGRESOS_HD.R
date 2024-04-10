@@ -190,6 +190,7 @@ INGRESOS_HD <-
                 ZCASINST %in% INST_CORPORATIVO ~ "CORPORATIVO",
                 ZCASINST %in% INST_SEGUROPRIVADO ~ "SEGURO PRIVADO",
                 TRUE ~ NA),
+    ZCASINST=if_else(tipo_inst=="ASSE", "ASSE", ZCASINST), #RENOMBRO INSTITUCION A ASSE
     tipo_imae=
       case_when(ZCAIMAE %in% c(IMAE_CENEU, IMAE_NEPHROS, IMAE_DIAVERUM, IMAE_SARI) ~ "INDEPENDIENTE",
                 ZCAIMAE %in% IMAE_PUBLICO ~ "PUBLICO",
@@ -291,7 +292,7 @@ a <-
            "S.M.Q. SALTO", "S.M.Q. SALTO", "COMEPA", "COMEPA", "COMEF", "COMEF IAMPP",
            "CASMU", "CASMU - IAMPP", "CASA DE GALICIA", "CASA DE GALICIA", "NEPHROS",
            "COSEM IAMPP", "UNIVERSAL", "UNIVERSAL",
-           "HOSPITAL DE CLINICAS", "INST_ASSE", "HOSPITAL MACIEL", "INST_ASSE"),
+           "HOSPITAL DE CLINICAS", "ASSE", "HOSPITAL MACIEL", "ASSE"),
          ncol=2, byrow=T) %>% as.data.frame()
 
 colnames(a) <- c("ZCAIMAE", "ZCAINST")
@@ -303,19 +304,20 @@ colnames(imae_inst) <- c("ZCAIMAE", "ZCASINST", "inst", "depto")
 INST <- 
   left_join(INGRESOS_HD, imae_inst, by="ZCASINST", 
             relationship="many-to-many") %>% # Join facility-institution dataset with patient dataset
+  select(inst, tipo_inst, CAPACNUM, depto, ZCAIMAE.x, ZCAIMAE.y) %>% 
   filter(depto=="01", # Filter for facilities in Montevideo
          ZCAIMAE.x!="SENNIAD HEMO") %>% #Not pediatric
   dummy_cols(select_columns = c("inst", "tipo_inst")) %>% 
   group_by(CAPACNUM) %>% 
   summarise_at(vars(starts_with("inst")), funs(.= max(.))) %>% 
-  mutate(inst2=0, 
+  mutate(
          #inst3=0, inst4=0, inst5=0, inst6=0, 
          #inst7=0, 
          #inst8=0, 
          inst9=0,
          #inst10=0, inst11=0, 
          inst12=0, 
-         inst14=0,inst16=0, inst17=0, inst19=0, inst20=0, inst24=0, 
+         inst14=0,inst16=0, inst17=0, inst19=0, inst20=0,
          #inst25=0, inst26=0, inst28=0, inst29=0, inst31=0, inst32=0,
          inst34=0, inst35=0, 
          #inst36=0, inst37=0, inst38=0, inst39=0,inst41=0
@@ -354,17 +356,28 @@ chain <- INGRESOS_HD %>%
 imaes <- INGRESOS_HD %>% group_by(ZCAIMAE) %>% summarise(CAIMAE=first(CAIMAE))
 
 turnos <- read_sav("~/Proyecto Tesis/Databases/INFORMES_IMAES_HD.sav") %>%
-  left_join(imaes, by="CAIMAE") %>% 
+  left_join(imaes, by="CAIMAE") %>%
   group_by(CAANIO, CAMES, ZCAIMAE) %>% 
-  summarise(turnosLMV=mean(c(DNLUT, DNMIT, DNVIT), na.rn=T),
-            turnosMJS=mean(c(DNMAT, DNJUT, DNSAT), na.rn=T))
+  summarise(turnosLMV=mean(c(DNLUT, DNMIT, DNVIT), na.rm=T),
+            turnosMJS=mean(c(DNMAT, DNJUT, DNSAT), na.rm=T)) %>%
+  rowwise() %>% 
+  mutate(turnos=mean(c(turnosLMV, turnosMJS), na.rm = T)) %>% 
+  unite("fecha", CAANIO:CAMES, sep="-", remove=FALSE) %>% 
+  mutate(Date = as.Date(paste(fecha, "-01", sep="")),
+         mes=format(Date, "%Y-%m")) %>%
+  group_by(mes) %>% 
+  left_join(IMAE_num, by="ZCAIMAE") %>% 
+  filter(depto=="01") %>% 
+  select(turnos, choice) %>% 
+  pivot_wider(names_from = "choice", values_from = "turnos", names_prefix = "turnos")
 
 INGRESOS_HD2 <- left_join(INGRESOS_HD, MEDICOS, 
                           by=c("ZB1SMEDIC"="ZB1RMEDICO",
                                "anio_solicitud"="PMDANIO")) %>%
   group_by(CAPACNUM) %>% 
   slice_max(CASEDADA, with_ties = FALSE) %>% 
-  left_join(INST, by = join_by(CAPACNUM)) %>%
+  left_join(INST, by = "CAPACNUM") %>%
+  left_join(turnos, by = c("mes_solicitud"="mes"), keep = T) %>% 
   cbind(tipo) %>% 
   cbind(chain) %>% 
   select(c(ZCAIMAE, CAPACNUM, 
@@ -372,6 +385,7 @@ INGRESOS_HD2 <- left_join(INGRESOS_HD, MEDICOS,
            num_range("inst", range = 1:41),
            num_range("tipo_imae", range = 1:41),
            num_range("chain", range = 1:41),
+           num_range("turnos", range = 1:41),
            CASEDADA, CASEXO, ZCASINST, ZCASDEPAR,
            CAFECSOL, ZB1SMEDIC, ZB1SRAZA, ZB1SOCUP0, exa_peso, exa_altura,
            B1SNIVEL, CAPACNUM, ZCASINST, anio_solicitud, tiene_imae, 
@@ -379,6 +393,8 @@ INGRESOS_HD2 <- left_join(INGRESOS_HD, MEDICOS,
            AADIASI, AACATP, AAFAV, DDIAG1, descom, coord, mes_solicitud, imae_inst)) %>% 
   rename(tipo_choice=tipo_imae) %>% 
   mutate_at(vars(starts_with(c("inst", "medimae"))), ~replace(., is.na(.), 0))
+
+aborrar2 <- INGRESOS_HD2 %>% select(starts_with("turnos"), mes_solicitud, mes)
 
 write.csv(INGRESOS_HD2, 
           "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/INGRESOS_HD2.csv", 
