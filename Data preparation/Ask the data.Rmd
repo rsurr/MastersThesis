@@ -77,3 +77,105 @@ DATA3
 
 No.
 
+# 4. Qué pacientes están en INGRESOS y en MENSUALES e SESIONES?
+
+```{r}
+
+aborrar <- left_join(MENSUALES_HD, INGRESOS_HD, by="CAPACNUM") %>% 
+  mutate(ingreso=if_else(is.na(CASEDADA), 1, 0))
+
+summary(aborrar$ingreso)
+
+aborrar2 <- left_join(SESIONES_HD, INGRESOS_HD, by="CAPACNUM") %>% 
+  mutate(ingreso=if_else(is.na(CASEDADA), 1, 0))
+
+summary(aborrar2$ingreso)
+```
+
+
+# 5. Qué pasa si uso las variables de ocupación?
+
+```{r}
+
+occupancy <- INFORMES_IMAES_HD %>%
+  left_join(imaes, by="CAIMAE") %>% 
+  rowwise() %>% 
+  mutate(
+    Nlunes= sum(c(DNLU1O, DNLU2O, DNLU3O, DNLU4O), na.rm = T)/DNLUT,
+    Nmartes= sum(c(DNMA1O, DNMA2O, DNMA3O, DNMA4O), na.rm = T)/DNMAT,
+    Nmiercoles= sum(c(DNMI1O, DNMI2O, DNMI3O, DNMI4O), na.rm = T)/DNMIT,
+    Njueves= sum(c(DNJU1O, DNJU2O, DNJU3O, DNJU4O), na.rm = T)/DNJUT,
+    Nviernes= sum(c(DNVI1O, DNVI2O, DNVI3O, DNVI4O), na.rm = T)/DNVIT,
+    Nsabado= sum(c(DNSA1O, DNSA2O, DNSA3O, DNSA4O), na.rm = T)/DNSAT,
+    
+    Nlmv=mean(c(Nlunes, Nmiercoles, Nviernes), na.rm = T),
+    Nmjs=mean(c(Nmartes, Njueves, Nsabado), na.rm = T),
+    
+    Plunes= sum(c(DPLU1O, DPLU2O, DPLU3O, DPLU4O), na.rm = T)/DPLUT,
+    Pmartes= sum(c(DPMA1O, DPMA2O, DPMA3O, DPMA4O), na.rm = T)/DPMAT,
+    Pmiercoles= sum(c(DPMI1O, DPMI2O, DPMI3O, DPMI4O), na.rm = T)/DPMIT,
+    Pjueves= sum(c(DPJU1O, DPJU2O, DPJU3O, DPJU4O), na.rm = T)/DPJUT,
+    Pviernes= sum(c(DPVI1O, DPVI2O, DPVI3O, DPVI4O), na.rm = T)/DPVIT,
+    Psabado= sum(c(DPSA1O, DPSA2O, DPSA3O, DPSA4O), na.rm = T)/DPSAT,
+    
+    Plmv=mean(c(Plunes, Pmiercoles, Pviernes), na.rm = T),
+    Pmjs=mean(c(Pmartes, Pjueves, Psabado), na.rm = T),
+    
+    slack=CAHMSPBN-mean(c(Nlmv,Nmjs)),
+    slack_perc=slack/CAHMSPBN*100) %>% 
+  
+  unite("fecha2", CAANIO:CAMES, sep="-") %>% 
+  mutate(fecha3=as.Date(paste(fecha2, "-01", sep="")),
+         mes_solicitud=format(fecha3, "%Y-%m")) %>% 
+  mutate(
+    tipo_imae=
+      case_when(ZCAIMAE %in% c(IMAE_CENEU, IMAE_NEPHROS, IMAE_DIAVERUM, IMAE_SARI) ~ "INDEPENDIENTE",
+                ZCAIMAE %in% IMAE_PUBLICO ~ "PUBLICO",
+                ZCAIMAE %in% IMAE_PRIVADO ~ "PRIVADO",
+                TRUE ~ NA)) %>% 
+  select(Nlmv, Nmjs, Plmv, Pmjs, CAHMSPBN, slack, slack_perc, tipo_imae, fecha3, CAIMAE, ZCAIMAE, mes_solicitud)
+
+
+DATA <- 
+  left_join(occupancy, INGRESOS_HD2, by=c("mes_solicitud", "ZCAIMAE")) %>% 
+  dummy_cols(select_columns = c("tipo_inst", "SCDESU")) %>% 
+  mutate(ingresos=if_else(is.na(CAPACNUM), 0, 1))
+
+DATA3 <- DATA  %>% 
+  group_by(ZCAIMAE) %>% 
+  summarise(slack=mean(slack, na.rm=T),
+            slack_perc=mean(slack_perc, na.rm=T),
+            tipo_inst_ASSE=mean(tipo_inst_ASSE, na.rm=T),
+            SCDESU_S=mean(SCDESU_S, na.rm=T),
+            ingresos=sum(ingresos),
+            inst_imae=mean(inst_imae, na.rm=T))
+
+INGRESOS_HD2 %>% group_by(ZCAIMAE) %>%
+  summarise(
+            inst_imae=mean(inst_imae, na.rm=T))
+
+```
+
+
+# 6. How much dialysis time?
+
+```{r}
+
+head(SESIONES_HD, n=20)
+
+summary(SESIONES_HD$DHORAS)
+
+
+
+```
+
+
+# 7. Complicaciones en la dialisis:
+
+```{r}
+table(SESIONES_HD$ZDCOMPD0)
+
+
+aborrar <- SESIONES_HD %>% filter(DCOMPD0==184020127)
+```
+

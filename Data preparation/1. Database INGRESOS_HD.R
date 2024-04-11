@@ -208,7 +208,7 @@ INGRESOS_HD <-
                 ZCASINST=="COSEM IAMPP" ~ 1,
                 ZCASINST=="UNIVERSAL" ~ 1,
                 ZCASINST=="HOSPITAL ITALIANO" ~ 1,
-                ZCASINST %in% INST_ASSE ~ 1,
+                ZCASINST=="ASSE" ~ 1,
                 TRUE ~ 0),
     imae_inst=
       case_when(ZCAIMAE=="ASOCIACION ESPAÑOLA" & ZCASINST=="ASOCIACION ESPAÑOLA" ~ 1,
@@ -224,8 +224,8 @@ INGRESOS_HD <-
                 ZCAIMAE=="UNIVERSAL" & ZCASINST=="UNIVERSAL" ~ 1,
                 ZCAIMAE=="HOSPITAL ITALIANO" & ZCASINST=="UNIVERSAL" ~ 1,
                 
-                ZCAIMAE =="HOSPITAL DE CLINICAS" & ZCASINST %in% INST_ASSE ~ 1,
-                ZCAIMAE =="HOSPITAL MACIEL" & ZCASINST %in% INST_ASSE ~ 1,
+                ZCAIMAE =="HOSPITAL DE CLINICAS" & ZCASINST=="ASSE" ~ 1,
+                ZCAIMAE =="HOSPITAL MACIEL" & ZCASINST=="ASSE" ~ 1,
                 TRUE ~ 0),
     transp=
       case_when(ZCAIMAE %in% c(IMAE_CENEU, IMAE_NEPHROS, IMAE_DIAVERUM) ~ 1,
@@ -362,7 +362,17 @@ transp <- INGRESOS_HD %>%
   select(choice, transp) %>% 
   pivot_wider(names_from = "choice", values_from = "transp", names_prefix = "transp")
 
+library(haven)
+INFORMES_IMAES_HD <- read_sav("~/Proyecto Tesis/Databases/INFORMES_IMAES_HD.sav")
+View(INFORMES_IMAES_HD)
+
 imaes <- INGRESOS_HD %>% group_by(ZCAIMAE) %>% summarise(CAIMAE=first(CAIMAE))
+
+turnos <- INFORMES_IMAES_HD %>%
+  left_join(imaes, by="CAIMAE") %>% 
+  group_by(CAANIO, CAMES, ZCAIMAE) %>% 
+  summarise(turnosLMV=mean(c(DNLUT, DNMIT, DNVIT), na.rn=T),
+            turnosMJS=mean(c(DNMAT, DNJUT, DNSAT), na.rn=T))
 
 turnos <- read_sav("~/Proyecto Tesis/Databases/INFORMES_IMAES_HD.sav") %>%
   left_join(imaes, by="CAIMAE") %>%
@@ -405,8 +415,6 @@ INGRESOS_HD2 <- left_join(INGRESOS_HD, MEDICOS,
            AADIASI, AACATP, AAFAV, DDIAG1, descom, coord, mes_solicitud, imae_inst)) %>% 
   rename(tipo_choice=tipo_imae) %>% 
   mutate_at(vars(starts_with(c("inst", "medimae"))), ~replace(., is.na(.), 0))
-
-aborrar2 <- INGRESOS_HD2 %>% select(starts_with("turnos"), mes_solicitud, mes)
 
 write.csv(INGRESOS_HD2, 
           "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/INGRESOS_HD2.csv", 

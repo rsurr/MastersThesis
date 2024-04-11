@@ -5,8 +5,10 @@ library(peakRAM)
 library(haven)
 library(kableExtra)
 
-source("1. Database INGRESOS_HD.R")
-source("2. Database GEO.R")
+setwd("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/")
+
+source("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/Data preparation/1. Database INGRESOS_HD.R")
+source("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/Data preparation/2. Database GEO.R")
 
 INGRESOS_HD2 <- read_csv("INGRESOS_HD2.csv")
 GEO <- read_csv("GEO.csv") %>% 
@@ -24,7 +26,6 @@ MENSUALES_HD <- read_sav("~/Proyecto Tesis/Databases/MENSUALES HD.sav") %>%
 occupancy <- read_csv("OCCUPANCY.CSV")
 
 # BASE INGRESOS
-
 DATA_INGRESOS <- INGRESOS_HD2 %>% 
   left_join(GEO, by="CAPACNUM") %>% 
   left_join(IMAE_num, by=c("ZCAIMAE"="ZCAIMAE")) %>%
@@ -41,19 +42,22 @@ mlogit_INGRESOS <- dfidx(DATA_INGRESOS,
                  idnames = c("CAPACNUM", "ZCAIMAE"),
                  shape = "long",
                  varying=grep('^medimae|^inst|^dist|^tipo_imae|^chain|^transp|^turnos|^urea|^surv|^URR|^fosf|^hemo|^comp|^sept|^peso|^ktv', names(DATA_INGRESOS)), 
-                 sep="")  
-
+                 sep="")
 
 library(peakRAM)
 peakRAM({
   mlogitdta <- mlogit_INGRESOS %>% as.data.frame() %>% unnest_wider(idx)
   
-  write_dta(mlogitdta, 
+  mlogitdta2 <- mlogitdta %>% left_join(occupancy, by=c("ZCAIMAE", "mes_solicitud"="fecha"))
+  
+  write_dta(mlogitdta2, 
             "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/mlogitdta.dta",
             version = 14,
             label = attr(data, "label"),
             strl_threshold = 2045,
             adjust_tz = TRUE)})
+
+no_prestador <- mlogit_INGRESOS %>% filter(tiene_imae==0, inst==1)
 
 unique(DATAi$ZCAIMAE)
 
