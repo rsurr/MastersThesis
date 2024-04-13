@@ -29,7 +29,7 @@ occupancy <- read_csv("OCCUPANCY.CSV")
 DATA_INGRESOS <- INGRESOS_HD2 %>% 
   left_join(GEO, by="CAPACNUM") %>% 
   left_join(IMAE_num, by=c("ZCAIMAE"="ZCAIMAE")) %>%
-  left_join(quality_reg, by=c("anio_solicitud"="anio")) %>%
+  #left_join(quality_reg, by=c("anio_solicitud"="anio")) %>%
   filter(depto=="01",
          ZCAIMAE!="SENNIAD HEMO") %>% 
   filter(!is.na(dist18))  %>% # FILTRO PROVISORIO SACANDO PACIENTES CON DIST NA (60 OBS)
@@ -41,14 +41,19 @@ mlogit_INGRESOS <- dfidx(DATA_INGRESOS,
                  choice="choice",
                  idnames = c("CAPACNUM", "ZCAIMAE"),
                  shape = "long",
-                 varying=grep('^medimae|^inst|^dist|^tipo_imae|^chain|^transp|^turnos|^urea|^surv|^URR|^fosf|^hemo|^comp|^sept|^peso|^ktv', names(DATA_INGRESOS)), 
+                 varying=grep('^medimae|^inst|^dist|^tipo_imae|^chain|^transp|^turnos', names(DATA_INGRESOS)), 
                  sep="")
 
 library(peakRAM)
 peakRAM({
   mlogitdta <- mlogit_INGRESOS %>% as.data.frame() %>% unnest_wider(idx)
   
-  mlogitdta2 <- mlogitdta %>% left_join(occupancy, by=c("ZCAIMAE", "mes_solicitud"="fecha"))
+  mlogitdta2 <- mlogitdta %>% 
+    left_join(occupancy, by=c("ZCAIMAE", "mes_solicitud"="fecha")) %>%
+    mutate(anio_solicitud=as.factor(anio_solicitud),
+           ZCAIMAE=as.numeric(as.character(ZCAIMAE))) %>% 
+    left_join(quality, by=c("ZCAIMAE", "anio_solicitud"="anio", "depto"))
+    
   
   write_dta(mlogitdta2, 
             "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/mlogitdta.dta",
@@ -154,7 +159,7 @@ summary(model)
 
 #--------------------- 
 
-result_tiene <- DATA %>%
+result_tiene <- DATA_INGRESOS %>%
   filter(tiene_imae==1) %>% 
   group_by(ZCAIMAE) %>%
   summarise(Frequency = n()) %>%
@@ -163,7 +168,7 @@ result_tiene <- DATA %>%
   arrange(desc(Frequency)) %>%
   add_row(ZCAIMAE = "Total", Frequency = sum(.$Frequency), Percentage = 100)
 
-result_notiene <- DATA %>%
+result_notiene <- DATA_INGRESOS %>%
   filter(tiene_imae==0) %>% 
   group_by(ZCAIMAE) %>%
   summarise(Frequency = n()) %>%
@@ -175,3 +180,6 @@ result_notiene <- DATA %>%
 inner_join(result_tiene, result_notiene, by="ZCAIMAE") %>%
   kable("latex", booktabs = TRUE) %>% 
   writeLines("table.tex")
+
+
+

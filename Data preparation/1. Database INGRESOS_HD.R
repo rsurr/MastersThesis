@@ -34,7 +34,7 @@ INST_IAMCIAMPP <- c("ASOCIACION ESPAÑOLA", "CASMU - IAMPP", "CASA DE GALICIA", 
                     "EVANGELICO","IMPASA", "MUCAM", "SMI - SERVICIO MEDICO INTEGRAL", "GREMCA", 
                     "SISTEMA NOTARIAL DE SALUD*", "COMEF IAMPP", "UNIVERSAL", "COSEM IAMPP", "CUDAM", 
                     "CAAMEPA IAMPP", "COMUE *", "CRAMI IAMPP", "AMECOM IAMPP", "CAMEC IAMPP", 
-                    "AMEDRIN IAMPP", "COMTA IAMPP", "AFITYC***", "CRAME IAMPP", "S.M.Q. SALTO")
+                    "AMEDRIN IAMPP", "COMTA IAMPP", "AFITYC***", "CRAME IAMPP", "S.M.Q. SALTO", "MUCAM")
 
 INST_CORPORATIVO <- c("H.POLICIAL", "ANCAP***", "ANV (BHU)***")
 
@@ -209,6 +209,7 @@ INGRESOS_HD <-
                 ZCASINST=="UNIVERSAL" ~ 1,
                 ZCASINST=="HOSPITAL ITALIANO" ~ 1,
                 ZCASINST=="ASSE" ~ 1,
+                ZCASINST=="MUCAM" ~ 1,
                 TRUE ~ 0),
     imae_inst=
       case_when(ZCAIMAE=="ASOCIACION ESPAÑOLA" & ZCASINST=="ASOCIACION ESPAÑOLA" ~ 1,
@@ -226,6 +227,7 @@ INGRESOS_HD <-
                 
                 ZCAIMAE =="HOSPITAL DE CLINICAS" & ZCASINST=="ASSE" ~ 1,
                 ZCAIMAE =="HOSPITAL MACIEL" & ZCASINST=="ASSE" ~ 1,
+                ZCAIMAE =="CANMU" & ZCASINST=="MUCAM" ~ 1,
                 TRUE ~ 0),
     transp=
       case_when(ZCAIMAE %in% c(IMAE_CENEU, IMAE_NEPHROS, IMAE_DIAVERUM) ~ 1,
@@ -292,7 +294,7 @@ a <-
            "S.M.Q. SALTO", "S.M.Q. SALTO", "COMEPA", "COMEPA", "COMEF", "COMEF IAMPP",
            "CASMU", "CASMU - IAMPP", "CASA DE GALICIA", "CASA DE GALICIA", "NEPHROS",
            "COSEM IAMPP", "UNIVERSAL", "UNIVERSAL",
-           "HOSPITAL DE CLINICAS", "ASSE", "HOSPITAL MACIEL", "ASSE"),
+           "HOSPITAL DE CLINICAS", "ASSE", "HOSPITAL MACIEL", "ASSE", "CANMU", "MUCAM"),
          ncol=2, byrow=T) %>% as.data.frame()
 
 colnames(a) <- c("ZCAIMAE", "ZCAINST")
@@ -319,7 +321,7 @@ INST <-
          inst12=0, 
          inst14=0,inst16=0, inst17=0, inst19=0, inst20=0,
          #inst25=0, inst26=0, inst28=0, inst29=0, inst31=0, inst32=0,
-         inst34=0, inst35=0, 
+         inst34=0, 
          #inst36=0, inst37=0, inst38=0, inst39=0,inst41=0
          ) 
 
@@ -412,7 +414,8 @@ INGRESOS_HD2 <- left_join(INGRESOS_HD, MEDICOS,
            CAFECSOL, ZB1SMEDIC, ZB1SRAZA, ZB1SOCUP0, exa_peso, exa_altura,
            B1SNIVEL, CAPACNUM, ZCASINST, anio_solicitud, tiene_imae, 
            tipo_inst, tipo_pac, estu_creatinemia, tipo_imae,
-           AADIASI, AACATP, AAFAV, DDIAG1, descom, coord, mes_solicitud, imae_inst)) %>% 
+           AADIASI, AACATP, AAFAV, DDIAG1, descom, coord, mes_solicitud, 
+           imae_inst, exa_capacidad)) %>% 
   rename(tipo_choice=tipo_imae) %>% 
   mutate_at(vars(starts_with(c("inst", "medimae"))), ~replace(., is.na(.), 0))
 
@@ -420,3 +423,4 @@ write.csv(INGRESOS_HD2,
           "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/INGRESOS_HD2.csv", 
           row.names=FALSE)  
 
+aborrar <- unique(INGRESOS_HD$ZCASINST) %>% as.data.frame()

@@ -174,8 +174,39 @@ summary(SESIONES_HD$DHORAS)
 
 ```{r}
 table(SESIONES_HD$ZDCOMPD0)
+table(SESIONES_HD$DCOMP)
 
 
 aborrar <- SESIONES_HD %>% filter(DCOMPD0==184020127)
 ```
+
+
+# 8. Where do ASSE patients go?
+
+```{r}
+
+asse <- INGRESOS_HD %>% filter(ZCASINST=="ASSE") %>% select(ZCAIMAE)
+
+table(asse$ZCAIMAE) %>% as.data.frame()
+
+
+```
+# 9. Patients by functionality 
+
+```{r}
+table(INGRESOS_HD$exa_capacidad)
+
+```
+
+# 10. How many in waiting list for transplant?
+
+```{r}
+table(MENSUALES_HD$DLISTATR)
+
+aborrar <- MENSUALES_HD %>% select(CAPACNUM, PMD_ANIO, PMD_ANIO, PMD_MES, DLISTATR)
+```
+
+Solo hay datos para diciembre, ¿por qué? (Preguntar a Opertti).
+
+# 11. V
 

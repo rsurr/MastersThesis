@@ -1,10 +1,6 @@
 
 
-cor_quality_adj <- quality %>% select(-c(IMAE, anio, tipo_choice, tipo_imae2)) %>% cor(use="complete.obs")
 
-cor_quality_non <- non_adj_quality %>%  ungroup() %>% 
-  select(-c(IMAE, anio, tipo_choice, tipo_imae2)) %>% 
-  cor(use="complete.obs")
 
 # Fit the linear regression model
 
