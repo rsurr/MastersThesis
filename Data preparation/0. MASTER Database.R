@@ -37,6 +37,8 @@ DATA_INGRESOS <- INGRESOS_HD2 %>%
          lat_Google<(-34.7),
          long_Google<(-56))
 
+aborrar <- DATA_INGRESOS %>% select(starts_with("dist"))
+
 mlogit_INGRESOS <- dfidx(DATA_INGRESOS, 
                  choice="choice",
                  idnames = c("CAPACNUM", "ZCAIMAE"),
@@ -52,7 +54,8 @@ peakRAM({
     left_join(occupancy, by=c("ZCAIMAE", "mes_solicitud"="fecha")) %>%
     mutate(anio_solicitud=as.factor(anio_solicitud),
            ZCAIMAE=as.numeric(as.character(ZCAIMAE))) %>% 
-    left_join(quality, by=c("ZCAIMAE", "anio_solicitud"="anio", "depto"))
+    left_join(quality, by=c("ZCAIMAE", "anio_solicitud"="anio")) %>% 
+    select(-c("depto.x", "depto.y", "tipo_choice.x", "tipo_choice.y"))
     
   
   write_dta(mlogitdta2, 
@@ -179,7 +182,7 @@ result_notiene <- DATA_INGRESOS %>%
 
 inner_join(result_tiene, result_notiene, by="ZCAIMAE") %>%
   kable("latex", booktabs = TRUE) %>% 
-  writeLines("table.tex")
+  writeLines("shares.tex")
 
 
 

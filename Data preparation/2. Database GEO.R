@@ -122,7 +122,7 @@ IMAES_sf <- st_as_sf(IMAES, coords = c("long_Google", "lat_Google"),
          ZCAIMAE!="SENNIAD HEMO",
          ZCAIMAE!="SANATORIO AMERICANO")
 
-pacientes_sf <- DATA %>% 
+pacientes_sf <- DATA_INGRESOS %>% 
   filter(!is.na(long_Google), !is.na(lat_Google),
          lat_Google<(-34.7),
          long_Google<(-56)) %>% 
