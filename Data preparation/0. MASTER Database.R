@@ -52,6 +52,7 @@ peakRAM({
   
   mlogitdta2 <- mlogitdta %>% 
     left_join(occupancy, by=c("ZCAIMAE", "mes_solicitud"="fecha")) %>%
+    left_join(congestion, by=c("ZCAIMAE", "mes_solicitud")) %>%
     mutate(anio_solicitud=as.factor(anio_solicitud),
            ZCAIMAE=as.numeric(as.character(ZCAIMAE))) %>% 
     left_join(quality, by=c("ZCAIMAE", "anio_solicitud"="anio")) %>% 

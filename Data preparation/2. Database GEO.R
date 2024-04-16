@@ -76,26 +76,6 @@ IMAE_num <- matrix(c(as.vector(IMAES$IMA_DESC), 1:41,
   rename(ZCAIMAE=V1, choice=V2, depto=V3) %>% 
   filter(ZCAIMAE!="HOSPITAL ITALIANO")
 
-IMAE_num2 <- INGRESOS_HD %>%
-  group_by(ZCAIMAE) %>% 
-  summarize(tipo_imae=first(tipo_imae),
-            chain=first(chain),
-            transp=first(transp)) %>%
-  left_join(IMAE_num, by="ZCAIMAE")
-
-a <- 
-  matrix(c("ASOCIACION ESPAÑOLA", "ASOCIACION ESPAÑOLA", "SMI - SERVICIO MEDICO INTEGRAL",
-           "SMI - SERVICIO MEDICO INTEGRAL", "HOSPITAL BRITANICO", "HOSPITAL BRITANICO",
-           "S.M.Q. SALTO", "S.M.Q. SALTO", "COMEPA", "COMEPA", "COMEF", "COMEF IAMPP",
-           "CASMU", "CASMU - IAMPP", "CASA DE GALICIA", "CASA DE GALICIA", "NEPHROS",
-           "COSEM IAMPP", "UNIVERSAL", "UNIVERSAL",
-           "HOSPITAL DE CLINICAS", "ASSE", "HOSPITAL MACIEL", "ASSE"),
-         ncol=2, byrow=T) %>% as.data.frame()
-
-colnames(a) <- c("ZCAIMAE", "ZCAINST")
-
-IMAE_num3 <- IMAE_num2 %>% left_join(a, by="ZCAIMAE")
-
 write.csv(GEO, 
           "GEO.csv", row.names=F)
 

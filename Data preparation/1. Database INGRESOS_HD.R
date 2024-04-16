@@ -301,14 +301,14 @@ colnames(a) <- c("ZCAIMAE", "ZCAINST")
 
 imae_inst <- a %>% left_join(IMAE_num, by="ZCAIMAE")
 
-colnames(imae_inst) <- c("ZCAIMAE", "ZCASINST", "inst", "depto")
+colnames(imae_inst) <- c("ZCAIMAE_INST", "ZCASINST", "inst", "depto")
 
 INST <- 
   left_join(INGRESOS_HD, imae_inst, by="ZCASINST", 
             relationship="many-to-many") %>% # Join facility-institution dataset with patient dataset
-  select(inst, tipo_inst, CAPACNUM, depto, ZCAIMAE.x, ZCAIMAE.y) %>% 
+  select(inst, tipo_inst, CAPACNUM, depto, ZCAIMAE) %>% 
   filter(depto=="01", # Filter for facilities in Montevideo
-         ZCAIMAE.x!="SENNIAD HEMO") %>% #Not pediatric
+         ZCAIMAE!="SENNIAD HEMO") %>% #Not pediatric
   dummy_cols(select_columns = c("inst", "tipo_inst")) %>% 
   group_by(CAPACNUM) %>% 
   summarise_at(vars(starts_with("inst")), funs(.= max(.))) %>% 
