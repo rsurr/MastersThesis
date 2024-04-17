@@ -247,7 +247,7 @@ pred_sept <- get_all_predictions(m_sept, base) %>% rename(sept=Prediction)
 pred_peso <- get_all_predictions(m_peso, base) %>% rename(peso=Prediction)
 pred_URR <- get_all_predictions(m_URR, base) %>% rename(URR=Prediction)
 pred_ktv <- get_all_predictions(m_ktv, base) %>% rename(ktv=Prediction)
-pred_comp_dialisis <- get_all_predictions(m_comp_dialisis, base) %>% rename(comp_dialisis=Prediction)
+#pred_comp_dialisis <- get_all_predictions(m_comp_dialisis, base) %>% rename(comp_dialisis=Prediction)
 
 quality <- left_join(pred_URR, pred_surv, by=c("IMAE", "anio")) %>% 
   left_join(pred_fosf, by=c("IMAE", "anio")) %>%
@@ -257,13 +257,19 @@ quality <- left_join(pred_URR, pred_surv, by=c("IMAE", "anio")) %>%
   left_join(pred_peso, by=c("IMAE", "anio")) %>%
   left_join(pred_urea, by=c("IMAE", "anio")) %>%
   left_join(pred_ktv, by=c("IMAE", "anio")) %>%
-  left_join(pred_comp_dialisis, by=c("IMAE", "anio")) %>%
-  left_join(tipo_imae, by=c("IMAE"="ZCAIMAE")) %>%
-  mutate(tipo_imae2=case_when(tipo_choice=="INDEPENDIENTE" ~ "Indep",
-                              tipo_choice=="PRIVADO" ~ "Priv Ins",
-                              tipo_choice=="PUBLICO" ~ "Pub Ins")) %>% 
-  left_join(IMAE_num, by=c("IMAE"="ZCAIMAE")) %>% 
-  rename(ZCAIMAE=choice)
+  #left_join(pred_comp_dialisis, by=c("IMAE", "anio")) %>%
+  #left_join(tipo_imae, by=c("IMAE"="ZCAIMAE")) %>%
+  #mutate(tipo_imae2=case_when(tipo_choice=="INDEPENDIENTE" ~ "Indep",
+  #                            tipo_choice=="PRIVADO" ~ "Priv Ins",
+  #                            tipo_choice=="PUBLICO" ~ "Pub Ins")) %>% 
+  #left_join(IMAE_num, by=c("IMAE"="ZCAIMAE")) %>% 
+  rename(ZCAIMAE=IMAE) %>% mutate(anio=as.double(as.character(anio)))  
+  
+
+write.csv(
+  quality,
+  "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/quality.csv", 
+  row.names=FALSE)
 
 #quality_input_outcome <- quality %>% 
 #  group_by(IMAE, anio) %>% 

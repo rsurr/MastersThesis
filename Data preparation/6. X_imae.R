@@ -325,7 +325,7 @@ imae_inst <-
            "HOSPITAL DE CLINICAS", "ASSE", "HOSPITAL MACIEL", "ASSE", "CANMU", "MUCAM"),
          ncol=2, byrow=T) %>% as.data.frame()
 
-colnames(imae_inst) <- c("ZCAIMAE", "ZCASINST")
+colnames(imae_inst) <- c("ZCAIMAE", "ZCASINST_IMAE")
 
 # Turnos ----
 turnos <- INFORMES_IMAES_HD %>%
@@ -335,33 +335,144 @@ turnos <- INFORMES_IMAES_HD %>%
   rowwise() %>% 
   mutate(turnos=mean(c(turnosLMV, turnosMJS), na.rm = T))
 
+# Occupancy ----
+
+SESIONES_HD <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/SESIONES HD.sav") 
+
+SESIONES_HD <- SESIONES_HD %>% 
+  unite("fecha", PMD_ANIO:PMD_MES, sep="-", remove=FALSE) %>% 
+  mutate(Date = as.Date(paste(fecha, "-01", sep="")))
+
+SESIONES_HD <- SESIONES_HD %>% 
+  mutate(
+    ZPMD_IMAE=if_else(ZPMD_IMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZPMD_IMAE))
+
+occupancy <- SESIONES_HD %>% select(ZPMD_IMAE, PMD_ANIO, PMD_MES, CAPACNUM, Date) %>%
+  mutate(mes_solicitud=format(Date, "%Y-%m")) %>% 
+  group_by(ZPMD_IMAE, mes_solicitud) %>% 
+  summarise(n=n(), mes_solicitud=first(mes_solicitud), PMD_ANIO=first(PMD_ANIO)) %>% 
+  ungroup() %>% 
+  group_by(ZPMD_IMAE, PMD_ANIO) %>% 
+  mutate(promedio_anual=mean(n, na.rm = T)) %>% 
+  ungroup() %>% 
+  mutate(
+         dif=n-promedio_anual,
+         dif_prop=dif/promedio_anual) %>% 
+  rename(occ_var=dif,
+         occ_var_prop=dif_prop,
+         ZCAIMAE=ZPMD_IMAE) %>% 
+  select(occ_var, occ_var_prop, ZCAIMAE, mes_solicitud)
+  
+# Medimae ----
+
+MEDICOS <- SESIONES_HD %>%
+  left_join(IMAE_num, by=c("ZPMD_IMAE"="ZCAIMAE")) %>% # Column with facility number
+  rename(medimae=choice) %>% # Name facility number column "medimae"
+  filter(depto=="01", # Filter for facilities in Montevideo
+         ZPMD_IMAE!="SENNIAD HEMO") %>% #Not pediatric
+  group_by(ZB1RMEDICO, medimae, PMD_ANIO) %>% 
+  summarise(n=n()) %>% # Get the number of sessions of doctors in each facility (per year)
+  mutate(medimae=ifelse(medimae=="", NA, medimae), # Put NA if facility number blank
+         ZB1RMEDICO=ifelse(ZB1RMEDICO=="" | # Put NA if doctor name blank
+                             ZB1RMEDICO=="  No corresponde" |
+                             ZB1RMEDICO=="   No corresponde",
+                           NA, ZB1RMEDICO)) %>% 
+  filter(!is.na(medimae), !is.na(ZB1RMEDICO)) %>% 
+  group_by(ZB1RMEDICO, PMD_ANIO) %>% 
+  mutate(n_max=max(n),
+         max_imae=if_else(n==n_max, 1, 0)) %>% 
+  filter(max_imae==1)
+
+MEDICOS <- SESIONES_HD %>%
+  left_join(IMAE_num, by=c("ZPMD_IMAE"="ZCAIMAE")) %>% # Column with facility number
+  rename(medimae=choice) %>% # Name facility number column "medimae"
+  filter(depto=="01", # Filter for facilities in Montevideo
+         ZPMD_IMAE!="SENNIAD HEMO") %>% #Not pediatric
+  group_by(ZB1RMEDICO, medimae, PMD_ANIO) %>% 
+  summarise(n=n()) %>% # Get the number of sessions of doctors in each facility (per year)
+  mutate(medimae=ifelse(medimae=="", NA, medimae), # Put NA if facility number blank
+         ZB1RMEDICO=ifelse(ZB1RMEDICO=="" | # Put NA if doctor name blank
+                             ZB1RMEDICO=="  No corresponde" |
+                             ZB1RMEDICO=="   No corresponde",
+                           NA, ZB1RMEDICO)) %>% 
+  filter(!is.na(medimae), !is.na(ZB1RMEDICO)) %>% # Drop facility or doctor NA observations
+  group_by(medimae, PMD_ANIO) %>% 
+  dummy_cols(select_columns = "medimae") %>% # Dummies per facility (and one observation per facility-doctor-year)
+  group_by(ZB1RMEDICO, PMD_ANIO) %>% 
+  summarise_at(vars(starts_with("medimae")), funs(.= max(.))) %>% # Collapse to one observation per doctor-year
+  select(-"medimae_.")
+
+names(MEDICOS) <- gsub("[._]", "", names(MEDICOS))  # Remove "_" and "."
+
+MEDICOS <- MEDICOS %>%
+  mutate(across(starts_with("medimae"), ~ifelse(. == 1, as.integer(sub("medimae", "", cur_column())), .)))
+
+# Quality ----
+
+
 # X_imae ----
-X_imae <- 
-  INGRESOS_HD %>% 
-  left_join(IMAE_num, by="ZCAIMAE") %>% 
-  left_join(a, by=c("ZCAIMAE")) %>%
+
+imaes <- INGRESOS_HD %>%
+  left_join(IMAE_num, join_by("ZCAIMAE")) %>% 
+  filter(depto=="01",
+         ZCAIMAE!="SENNIAD HEMO") %>% 
+  group_by(CAIMAE) %>% 
+  summarise(CAIMAE=first(CAIMAE),
+            ZCAIMAE=first(ZCAIMAE),
+            chain=first(chain),
+            transp=first(transp),
+            tipo_imae=first(tipo_imae),
+            num_choice=first(choice),
+            depto=first(depto))
+
+unique(imaes$CAIMAE)
+
+CAIMAE <- unique(imaes$CAIMAE)
+mes_solicitud <- seq(as.Date("2003-01-01"), as.Date("2016-12-01"), by = "month")
+
+mes_solicitud <- format(mes_solicitud, "%Y-%m") # Convert mes_solicitud to YYYY-MM format
+data <- expand.grid(CAIMAE = CAIMAE, mes_solicitud = mes_solicitud) # Create all combinations of CAIMAE and mes_solicitud
+
+
+X_imae <-
+  data %>% 
+  left_join(imaes, by=c("CAIMAE")) %>%
+  left_join(imae_inst, by=c("ZCAIMAE")) %>%
   left_join(congestion, by=c("CAIMAE", "mes_solicitud")) %>%
-  left_join(turnos, by=c("CAIMAE", "mes_solicitud")) %>%
-  rename(ZCASINST=ZCASINST.x, ZCASINST_IMAE=ZCASINST.y) %>% 
-  group_by(ZCAIMAE, mes_solicitud) %>% 
-  summarize(
-    CAIMAE=first(CAIMAE),
-    chain=first(chain),
-    choice=first(choice),
-    transp=first(transp),
-    depto=first(depto),
-    ZCASINST_IMAE=first(ZCASINST_IMAE),
-    turnosLMV=first(turnosLMV),
-    turnosMJS=first(turnosMJS),
-    turnos=first(turnos),
-    slack2=first(slack2),
-    slack_perc2=first(slack_perc2),
-  ) %>% 
-  filter(ZCAIMAE!="SENNIAD HEMO",
-         depto=="01")
+  left_join(occupancy, by=c("ZCAIMAE", "mes_solicitud")) %>%
+  left_join(turnos, by=c("CAIMAE", "mes_solicitud")) %>% 
+  mutate(CAIMAE=as.factor(CAIMAE))
 
+# Logit_INGRESOS ----
 
+Logit_INGRESOS <- 
+  INGRESOS_HD %>%
+  left_join(IMAE_num, by="ZCAIMAE") %>% 
+  filter(depto=="01",
+         ZCAIMAE!="SENNIAD HEMO") %>%
+  select(CAIMAE, anio_solicitud, CAPACNUM, ZCASINST,
+         CASEDADA, CASEXO, ZCASINST, ZCASDEPAR,
+         CAFECSOL, ZB1SMEDIC, ZB1SRAZA, ZB1SOCUP0, exa_peso, exa_altura,
+         B1SNIVEL, CAPACNUM, ZCASINST, anio_solicitud, tiene_imae, 
+         tipo_inst, tipo_pac, estu_creatinemia,
+         AADIASI, AACATP, AAFAV, DDIAG1, descom, coord, mes_solicitud, 
+         imae_inst, exa_capacidad) %>% 
+  dummy_cols(select_columns = "CAIMAE") %>% 
+  pivot_longer(cols=starts_with("CAIMAE_"), names_to=c("borrar","ID_CAIMAE"), values_to = "choice", names_sep = "_") %>% 
+  select(-c(borrar, CAIMAE)) %>% 
+  left_join(X_imae, by=c("ID_CAIMAE"="CAIMAE", "mes_solicitud")) %>% 
+  left_join(MEDICOS, by=c("ZB1SMEDIC"="ZB1RMEDICO", "anio_solicitud"="PMDANIO")) %>%
+  left_join(quality, by=c("ZCAIMAE", "anio_solicitud"="anio")) %>% 
+  mutate(inst=case_when(ZCASINST==ZCASINST_IMAE~1,
+                        is.na(ZCASINST_IMAE)~0,
+                              .default = 0),
+         medimae = ifelse(rowSums(select(., starts_with("medimae")) == num_choice, na.rm = TRUE) > 0, 1, 0)) %>% 
+  select(-c(matches("^medimae[0-9]+$")))
 
-
-
+write_dta(Logit_INGRESOS, 
+          "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/Logit_INGRESOS.dta",
+          version = 14,
+          label = attr(data, "label"),
+          strl_threshold = 2045,
+          adjust_tz = TRUE)
 

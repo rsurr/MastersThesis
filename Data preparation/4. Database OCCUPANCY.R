@@ -4,6 +4,16 @@ library(haven)
 library(fastDummies)
 library(data.table)
 
+SESIONES_HD <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/SESIONES HD.sav") 
+
+SESIONES_HD <- SESIONES_HD %>% 
+  unite("fecha", PMD_ANIO:PMD_MES, sep="-", remove=FALSE) %>% 
+  mutate(Date = as.Date(paste(fecha, "-01", sep="")))
+
+SESIONES_HD <- SESIONES_HD %>% 
+  mutate(
+    ZPMD_IMAE=if_else(ZPMD_IMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZPMD_IMAE))
+
 occupancy <- SESIONES_HD %>% select(ZPMD_IMAE, PMD_ANIO, PMD_MES, fecha, CAPACNUM, fecha) %>% 
   group_by(ZPMD_IMAE, PMD_ANIO, PMD_MES) %>% 
   summarise(n=n(), fecha=first(fecha)) %>% 
