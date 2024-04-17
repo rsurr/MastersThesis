@@ -45,7 +45,7 @@ base <- left_join(MENSUALES_HD, PACIENTES, by="CAPACNUM") %>%
   filter(depto=="01",
          ZCAIMAE!="SENNIAD HEMO") %>%
   mutate_if(is.character, na_if,"") %>% 
-  group_by(CAPACNUM, PMD_ANIO) %>% 
+  group_by(CAPACNUM) %>% 
   fill(DDIAB, DCISQ, DEVP) %>% 
   ungroup() %>% 
   mutate(DDIAB=case_when(DDIAB=="D" ~ NA,
