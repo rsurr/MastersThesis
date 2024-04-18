@@ -348,19 +348,20 @@ SESIONES_HD <- SESIONES_HD %>%
     ZPMD_IMAE=if_else(ZPMD_IMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZPMD_IMAE))
 
 occupancy <- SESIONES_HD %>% select(ZPMD_IMAE, PMD_ANIO, PMD_MES, CAPACNUM, Date) %>%
-  mutate(mes_solicitud=format(Date, "%Y-%m")) %>% 
-  group_by(ZPMD_IMAE, mes_solicitud) %>% 
-  summarise(n=n(), mes_solicitud=first(mes_solicitud), PMD_ANIO=first(PMD_ANIO)) %>% 
+  group_by(ZPMD_IMAE, Date) %>% 
+  summarise(n=n(), Date=first(Date), PMD_ANIO=first(PMD_ANIO)) %>% 
   ungroup() %>% 
-  group_by(ZPMD_IMAE, PMD_ANIO) %>% 
-  mutate(promedio_anual=mean(n, na.rm = T)) %>% 
+  group_by(ZPMD_IMAE) %>% 
+  arrange(Date) %>%
+  mutate(moving_avg_n = rollmean(n, k = 12, fill = "extend", align = "center")) %>% 
   ungroup() %>% 
   mutate(
-         dif=n-promedio_anual,
-         dif_prop=dif/promedio_anual) %>% 
+         dif=n-moving_avg_n,
+         dif_prop=dif/moving_avg_n) %>% 
   rename(occ_var=dif,
          occ_var_prop=dif_prop,
          ZCAIMAE=ZPMD_IMAE) %>% 
+  mutate(mes_solicitud=format(Date, "%Y-%m")) %>% 
   select(occ_var, occ_var_prop, ZCAIMAE, mes_solicitud)
   
 # Medimae ----
@@ -406,42 +407,6 @@ names(MEDICOS) <- gsub("[._]", "", names(MEDICOS))  # Remove "_" and "."
 
 MEDICOS <- MEDICOS %>%
   mutate(across(starts_with("medimae"), ~ifelse(. == 1, as.integer(sub("medimae", "", cur_column())), .)))
-
-# Quality ----
-
-
-# X_imae ----
-
-imaes <- INGRESOS_HD %>%
-  left_join(IMAE_num, join_by("ZCAIMAE")) %>% 
-  filter(depto=="01",
-         ZCAIMAE!="SENNIAD HEMO") %>% 
-  group_by(CAIMAE) %>% 
-  summarise(CAIMAE=first(CAIMAE),
-            ZCAIMAE=first(ZCAIMAE),
-            chain=first(chain),
-            transp=first(transp),
-            tipo_imae=first(tipo_imae),
-            num_choice=first(choice),
-            depto=first(depto))
-
-unique(imaes$CAIMAE)
-
-CAIMAE <- unique(imaes$CAIMAE)
-mes_solicitud <- seq(as.Date("2003-01-01"), as.Date("2016-12-01"), by = "month")
-
-mes_solicitud <- format(mes_solicitud, "%Y-%m") # Convert mes_solicitud to YYYY-MM format
-data <- expand.grid(CAIMAE = CAIMAE, mes_solicitud = mes_solicitud) # Create all combinations of CAIMAE and mes_solicitud
-
-
-X_imae <-
-  data %>% 
-  left_join(imaes, by=c("CAIMAE")) %>%
-  left_join(imae_inst, by=c("ZCAIMAE")) %>%
-  left_join(congestion, by=c("CAIMAE", "mes_solicitud")) %>%
-  left_join(occupancy, by=c("ZCAIMAE", "mes_solicitud")) %>%
-  left_join(turnos, by=c("CAIMAE", "mes_solicitud")) %>% 
-  mutate(CAIMAE=as.factor(CAIMAE))
 
 # Delta peso ----
 
@@ -507,6 +472,55 @@ delta_p <- delta_p1 %>%
   mutate(anio=as.double(anio))
 
 
+# Dist ----
+
+GEO <- read_csv("GEO.csv")
+
+dist <- GEO %>% select(CAPACNUM, starts_with("dist")) %>% 
+  pivot_longer(cols = starts_with("dist"), names_to = "names", values_to = "dist") %>% 
+  separate(col = names, into = c("borrar", "num_choice"), sep = "t") %>% select(-borrar) %>% 
+  mutate(num_choice=as.character(num_choice))
+
+# Delays ----
+
+delays <- INGRESOS_HD %>% 
+  select(CAPACNUM, CAFECAUT, EBESTADF, ZEBESTAD, CAFECSOL, ZCAIMAE, anio_solicitud) %>%
+  mutate(delays = as.numeric(difftime(CAFECAUT, CAFECSOL, units = "days"))) %>% 
+  group_by(ZCAIMAE, anio_solicitud) %>% 
+  summarise(delays=mean(delays, na.rm = T))
+
+# X_imae ----
+
+imaes <- INGRESOS_HD %>%
+  left_join(IMAE_num, join_by("ZCAIMAE")) %>% 
+  filter(depto=="01",
+         ZCAIMAE!="SENNIAD HEMO") %>% 
+  group_by(CAIMAE) %>% 
+  summarise(CAIMAE=first(CAIMAE),
+            ZCAIMAE=first(ZCAIMAE),
+            chain=first(chain),
+            transp=first(transp),
+            tipo_imae=first(tipo_imae),
+            num_choice=first(choice),
+            depto=first(depto))
+
+CAIMAE <- unique(imaes$CAIMAE)
+mes_solicitud <- seq(as.Date("2003-01-01"), as.Date("2016-12-01"), by = "month")
+
+mes_solicitud <- format(mes_solicitud, "%Y-%m") # Convert mes_solicitud to YYYY-MM format
+data <- expand.grid(CAIMAE = CAIMAE, mes_solicitud = mes_solicitud) # Create all combinations of CAIMAE and mes_solicitud
+
+
+X_imae <-
+  data %>% 
+  left_join(imaes, by=c("CAIMAE")) %>%
+  left_join(imae_inst, by=c("ZCAIMAE")) %>%
+  left_join(congestion, by=c("CAIMAE", "mes_solicitud")) %>%
+  left_join(occupancy, by=c("ZCAIMAE", "mes_solicitud")) %>%
+  left_join(turnos, by=c("CAIMAE", "mes_solicitud")) %>% 
+  mutate(CAIMAE=as.factor(CAIMAE))
+
+
 # Logit_INGRESOS ----
 
 Logit_INGRESOS <- 
@@ -528,6 +542,8 @@ Logit_INGRESOS <-
   left_join(MEDICOS, by=c("ZB1SMEDIC"="ZB1RMEDICO", "anio_solicitud"="PMDANIO")) %>%
   left_join(quality, by=c("ZCAIMAE", "anio_solicitud"="anio")) %>% 
   left_join(delta_p, by=c("ZCAIMAE", "anio_solicitud"="anio")) %>% 
+  left_join(dist, by=c("CAPACNUM", "num_choice")) %>% 
+  left_join(delays, by=c("ZCAIMAE", "anio_solicitud")) %>% 
   mutate(inst=case_when(ZCASINST==ZCASINST_IMAE~1,
                         is.na(ZCASINST_IMAE)~0,
                               .default = 0),
