@@ -427,7 +427,7 @@ write.csv(
 
 library(stargazer)
 stargazer(m_urea, m_hemo, m_fosf, m_surv, m_comp, 
-                     m_sept, m_peso, m_ktv, m_URR, m_comp_dialisis,
+                     m_sept, m_peso, m_ktv, m_URR,
                      type="latex",
                      keep = c("CASEDADA", "meses", "ocupado",
                                 "PAC_SEXO_F",
@@ -438,7 +438,7 @@ stargazer(m_urea, m_hemo, m_fosf, m_surv, m_comp,
                      df=FALSE, omit.stat = c("ser","f", "rsq"), no.space = TRUE,
           report = "vc*",
           dep.var.labels = c("Urea", "Hemoglobin", "Phosphorus", "Survival", 
-                             "Complications", "Infections", "Weight", "Kt/V", "URR", "Dialysis complications"),
+                             "Complications", "Infections", "Weight", "Kt/V", "URR"),
           covariate.labels = c("Age", "Months on dialysis", "Working", "Female", "Diabetic",  
                                "Cardiopathy", "Vascular perfipheral", "Creatinine", "Primary", 
                                "Secondary", "University", "IAMC/IAMPP", "Seguro privado", "Corporativo"),
