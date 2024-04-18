@@ -250,63 +250,8 @@ aborrar <- MENSUALES_HD %>% select(CAPACNUM, PMD_ANIO, PMD_ANIO, PMD_MES, DLISTA
 
 Solo hay datos para diciembre, ¿por qué? (Preguntar a Opertti).
 
-# 11. Delta peso 
-
-```{r}
-dP <- SESIONES_HD %>% 
-  mutate(DPESOSE=case_when(DPESOSE==999.00 ~ NA,
-                           .default = as.numeric(DPESOSE)),
-         DPESOPO=case_when(DPESOPO==999.00 ~ NA,
-                           .default = as.numeric(DPESOPO)),
-         dife=DPESOPO-DPESOSE,
-         peso=case_when(abs(dife)<=0.5 ~ 1,
-                        abs(dife)>0.5 ~ 0,
-                        is.na(dife) ~ NA)) %>% 
-  rename(ZCAIMAE=ZPMD_IMAE)
+# 11. How many patients change facility?
 
 
-
-# Reorder "anio" in increasing order
-dP$anio <- factor(dP$PMD_ANIO, levels = sort(unique(dP$PMD_ANIO)))
-
-# Reorder "ZCAIMAE" alphabetically
-dP$ZCAIMAE <- factor(dP$ZCAIMAE, levels = sort(unique(dP$ZCAIMAE)))
-
-# Set reference levels for anio, ZCAIMAE and CAPACNUM
-base$anio <- relevel(base$anio, ref = "2004")
-base$ZCAIMAE <- relevel(base$ZCAIMAE, ref = "ASOCIACION ESPAÑOLA")
-base$CAPACNUM <- relevel(base$CAPACNUM, ref="344677")
-
-dP <- dP %>% select(peso, CAPACNUM, DPESOPR, ZCAIMAE, anio, dife) %>%
-  unite("ZCAIMAEanio", ZCAIMAE:anio, sep=":", remove = FALSE)
-
-
-library(peakRAM)
-library(fixest)
-peakRAM({
-  m_dP <- feols(peso ~ DPESOPR | ZCAIMAEanio + CAPACNUM, dP)
-})
-
-predict(m_dP)
-delta_p <- fixef(m_dP)$ZCAIMAEanio %>% as.data.frame() %>% 
-  rownames_to_column("ZCAIMAEanio")
-
-colnames(delta_p) <- c("ZCAIMAEanio", "value")
-
-delta_p <- delta_p %>%
-  separate(ZCAIMAEanio, sep = ":", into = c("ZCAIMAE", "anio"))
-
-m_dP2 <- lm(dife ~ - 1 + 
-               CAPACNUM +
-               DPESOPRE +
-               ZCAIMAE:anio, 
-             data=base)
-
-summary(m_dP)
-summary(m_dP2)
-
-aborrar2 <-stack(aborrar)
-
-```
 
 
