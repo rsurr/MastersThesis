@@ -252,6 +252,29 @@ Solo hay datos para diciembre, ¿por qué? (Preguntar a Opertti).
 
 # 11. How many patients change facility?
 
+```{r}
+
+IMAE_ingreso <- INGRESOS_HD2 %>% rename(IMAE_ingreso=ZCAIMAE)
+
+cambios <- SESIONES_HD %>% 
+  group_by(CAPACNUM, ZPMD_IMAE) %>%
+  summarize(n=n()) %>% 
+  group_by(CAPACNUM) %>% 
+  mutate(prop=n/sum(n),
+         max_prop=max(prop),
+         imae_max=if_else(prop==max_prop, 1, 0),
+         cambio=if_else(max_prop!=1, 1, 0)) %>% 
+  filter(imae_max==1) %>% 
+  right_join(IMAE_ingreso, by="CAPACNUM") %>% 
+  mutate(ingreso_max=if_else(ZPMD_IMAE==IMAE_ingreso, 1, 0))
+
+cambios %>% filter(max)
+summary(cambios$cambio)
+summary(cambios$max_prop)
+summary(cambios$ingreso_max)
+
+
+```
 
 
 
