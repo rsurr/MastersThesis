@@ -1,3 +1,7 @@
+library(dplyr)
+library(tidyr)
+library(stringr)
+
 get_all_predictions <- function(model, data) {
   # Create a data frame with all combinations of "IMAE" and "anio"
   combinations <- expand.grid(
@@ -16,9 +20,9 @@ get_all_predictions <- function(model, data) {
     PAC_SEXO_F = mean(base$PAC_SEXO_F, na.rm = TRUE),
     ZB1SRAZA_NEGRA = mean(base$ZB1SRAZA_NEGRA, na.rm = TRUE),
     ZB1SRAZA_OTRA = mean(base$ZB1SRAZA_OTRA, na.rm = TRUE),
-    DDIAB_S = mean(base$DDIAB_S, na.rm = TRUE),
-    DCISQ_S = mean(base$DCISQ_S, na.rm = TRUE),
-    DEVP_S = mean(base$DEVP_S, na.rm = TRUE),
+    DDIAB = mean(base$DDIAB, na.rm = TRUE),
+    DCISQ = mean(base$DCISQ, na.rm = TRUE),
+    DEVP = mean(base$DEVP, na.rm = TRUE),
     B1SNIVEL_Primaria = mean(base$B1SNIVEL_Primaria, na.rm = TRUE),
     B1SNIVEL_Secundaria = mean(base$B1SNIVEL_Secundaria, na.rm = TRUE),
     B1SNIVEL_Universidad = mean(base$B1SNIVEL_Universidad, na.rm = TRUE),
@@ -50,10 +54,6 @@ get_all_predictions <- function(model, data) {
   return(all_predictions)
 }
 
-library(dplyr)
-library(tidyr)
-library(stringr)
-
 extract_coefficients <- function(model) {
   model_name <- deparse(substitute(model))
   
@@ -68,13 +68,6 @@ extract_coefficients <- function(model) {
   
   return(coef_df)
 }
-
-
-library(dplyr)
-library(tidyr)
-
-library(dplyr)
-library(tidyr)
 
 create_quality_output <- function(quality, input) {
   output <- quality %>%

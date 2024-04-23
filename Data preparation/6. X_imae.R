@@ -378,24 +378,6 @@ MEDICOS <- SESIONES_HD %>%
                              ZB1RMEDICO=="  No corresponde" |
                              ZB1RMEDICO=="   No corresponde",
                            NA, ZB1RMEDICO)) %>% 
-  filter(!is.na(medimae), !is.na(ZB1RMEDICO)) %>% 
-  group_by(ZB1RMEDICO, PMD_ANIO) %>% 
-  mutate(n_max=max(n),
-         max_imae=if_else(n==n_max, 1, 0)) %>% 
-  filter(max_imae==1)
-
-MEDICOS <- SESIONES_HD %>%
-  left_join(IMAE_num, by=c("ZPMD_IMAE"="ZCAIMAE")) %>% # Column with facility number
-  rename(medimae=choice) %>% # Name facility number column "medimae"
-  filter(depto=="01", # Filter for facilities in Montevideo
-         ZPMD_IMAE!="SENNIAD HEMO") %>% #Not pediatric
-  group_by(ZB1RMEDICO, medimae, PMD_ANIO) %>% 
-  summarise(n=n()) %>% # Get the number of sessions of doctors in each facility (per year)
-  mutate(medimae=ifelse(medimae=="", NA, medimae), # Put NA if facility number blank
-         ZB1RMEDICO=ifelse(ZB1RMEDICO=="" | # Put NA if doctor name blank
-                             ZB1RMEDICO=="  No corresponde" |
-                             ZB1RMEDICO=="   No corresponde",
-                           NA, ZB1RMEDICO)) %>% 
   filter(!is.na(medimae), !is.na(ZB1RMEDICO)) %>% # Drop facility or doctor NA observations
   group_by(medimae, PMD_ANIO) %>% 
   dummy_cols(select_columns = "medimae") %>% # Dummies per facility (and one observation per facility-doctor-year)
@@ -476,10 +458,15 @@ delta_p <- delta_p1 %>%
 
 GEO <- read_csv("GEO.csv")
 
-dist <- GEO %>% select(CAPACNUM, starts_with("dist")) %>% 
+dist <- GEO  %>% 
+  filter(!is.na(dist18))  %>% # FILTRO PROVISORIO SACANDO PACIENTES CON DIST NA (60 OBS)
+  filter(!is.na(long_Google), !is.na(lat_Google),
+         lat_Google<(-34.7),
+         long_Google<(-56)) %>% 
+  select(CAPACNUM, starts_with("dist")) %>% 
   pivot_longer(cols = starts_with("dist"), names_to = "names", values_to = "dist") %>% 
   separate(col = names, into = c("borrar", "num_choice"), sep = "t") %>% select(-borrar) %>% 
-  mutate(num_choice=as.character(num_choice))
+  mutate(num_choice=as.double(num_choice))
 
 # Delays ----
 
@@ -510,6 +497,7 @@ mes_solicitud <- seq(as.Date("2003-01-01"), as.Date("2016-12-01"), by = "month")
 mes_solicitud <- format(mes_solicitud, "%Y-%m") # Convert mes_solicitud to YYYY-MM format
 data <- expand.grid(CAIMAE = CAIMAE, mes_solicitud = mes_solicitud) # Create all combinations of CAIMAE and mes_solicitud
 
+quality <- read_csv("quality.csv")
 
 X_imae <-
   data %>% 
@@ -518,10 +506,14 @@ X_imae <-
   left_join(congestion, by=c("CAIMAE", "mes_solicitud")) %>%
   left_join(occupancy, by=c("ZCAIMAE", "mes_solicitud")) %>%
   left_join(turnos, by=c("CAIMAE", "mes_solicitud")) %>% 
-  mutate(CAIMAE=as.factor(CAIMAE))
-
+  separate(mes_solicitud, into=c("anio_solicitud", "mes"), remove=F) %>% select(-mes) %>% 
+  mutate(CAIMAE=as.factor(CAIMAE), anio_solicitud=as.double(anio_solicitud)) %>% 
+  left_join(delays, by=c("ZCAIMAE", "anio_solicitud")) %>% 
+  left_join(quality, by=c("ZCAIMAE", "anio_solicitud"="anio", "depto"))
+  
 
 # Logit_INGRESOS ----
+
 
 Logit_INGRESOS <- 
   INGRESOS_HD %>%
@@ -538,18 +530,16 @@ Logit_INGRESOS <-
   dummy_cols(select_columns = "CAIMAE") %>% 
   pivot_longer(cols=starts_with("CAIMAE_"), names_to=c("borrar","ID_CAIMAE"), values_to = "choice", names_sep = "_") %>% 
   select(-c(borrar, CAIMAE)) %>% 
-  left_join(X_imae, by=c("ID_CAIMAE"="CAIMAE", "mes_solicitud")) %>% 
+  left_join(X_imae, by=c("ID_CAIMAE"="CAIMAE", "mes_solicitud", "anio_solicitud")) %>% 
   left_join(MEDICOS, by=c("ZB1SMEDIC"="ZB1RMEDICO", "anio_solicitud"="PMDANIO")) %>%
-  left_join(quality, by=c("ZCAIMAE", "anio_solicitud"="anio")) %>% 
-  left_join(delta_p, by=c("ZCAIMAE", "anio_solicitud"="anio")) %>% 
+  #left_join(delta_p, by=c("ZCAIMAE", "anio_solicitud"="anio")) %>% 
   left_join(dist, by=c("CAPACNUM", "num_choice")) %>% 
-  left_join(delays, by=c("ZCAIMAE", "anio_solicitud")) %>% 
   mutate(inst=case_when(ZCASINST==ZCASINST_IMAE~1,
                         is.na(ZCASINST_IMAE)~0,
                               .default = 0),
-         medimae = ifelse(rowSums(select(., starts_with("medimae")) == num_choice, na.rm = TRUE) > 0, 1, 0)) %>% 
+         medimae = ifelse(rowSums(select(., starts_with("medimae")) == num_choice, na.rm = TRUE) > 0, 1, 0),
+         distk=dist/1000) %>% 
   select(-c(matches("^medimae[0-9]+$")))
-
 
 write_dta(Logit_INGRESOS, 
           "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/Logit_INGRESOS.dta",
