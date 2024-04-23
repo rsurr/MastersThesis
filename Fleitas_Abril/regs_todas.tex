@@ -1,0 +1,25 @@
+\begin{table}[htbp]\centering
+\def\sym#1{\ifmmode^{#1}\else\(^{#1}\)\fi}
+\caption{Patient whose insurance does not have provider}
+\begin{tabular}{l*{6}{c}}
+\hline\hline
+                    &\multicolumn{1}{c}{(1)}&\multicolumn{1}{c}{(2)}&\multicolumn{1}{c}{(3)}&\multicolumn{1}{c}{(4)}&\multicolumn{1}{c}{(5)}&\multicolumn{1}{c}{(6)}\\
+                    &\multicolumn{1}{c}{choice}&\multicolumn{1}{c}{choice}&\multicolumn{1}{c}{choice}&\multicolumn{1}{c}{choice}&\multicolumn{1}{c}{choice}&\multicolumn{1}{c}{choice}\\
+                    &        b/se         &        b/se         &        b/se         &        b/se         &        b/se         &        b/se         \\
+\hline
+choice              &                     &                     &                     &                     &                     &                     \\
+Insurance           &       2.192\sym{***}&       2.205\sym{***}&       2.250\sym{***}&       2.267\sym{***}&       0.000         &       0.000         \\
+                    &     (0.050)         &     (0.050)         &     (0.050)         &     (0.051)         &         (.)         &         (.)         \\
+Nephrologist        &       1.388\sym{***}&       1.367\sym{***}&       1.181\sym{***}&       1.142\sym{***}&       2.384\sym{***}&       2.393\sym{***}\\
+                    &     (0.059)         &     (0.061)         &     (0.066)         &     (0.068)         &     (0.138)         &     (0.139)         \\
+Distance (km)       &      -0.375\sym{***}&      -0.389\sym{***}&      -0.374\sym{***}&      -0.388\sym{***}&      -0.360\sym{***}&      -0.366\sym{***}\\
+                    &     (0.013)         &     (0.014)         &     (0.014)         &     (0.015)         &     (0.037)         &     (0.037)         \\
+Occupancy           &       0.001         &       0.000         &       0.001\sym{*}  &       0.000         &      -0.001         &      -0.001         \\
+                    &     (0.000)         &     (0.000)         &     (0.000)         &     (0.000)         &     (0.001)         &     (0.001)         \\
+Adequacy            &                     &       1.796\sym{***}&                     &       1.887\sym{***}&                     &       1.165\sym{*}  \\
+                    &                     &     (0.205)         &                     &     (0.222)         &                     &     (0.540)         \\
+\hline
+Observations        &       44834         &       42493         &       39178         &       36989         &        5656         &        5504         \\
+\hline\hline
+\end{tabular}
+\end{table}

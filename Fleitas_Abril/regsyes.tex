@@ -1,0 +1,25 @@
+\begin{table}[htbp]\centering
+\def\sym#1{\ifmmode^{#1}\else\(^{#1}\)\fi}
+\caption{Patient whose insurance does not have provider}
+\begin{tabular}{l*{2}{c}}
+\hline\hline
+                    &\multicolumn{1}{c}{(1)}&\multicolumn{1}{c}{(2)}\\
+                    &\multicolumn{1}{c}{choice}&\multicolumn{1}{c}{choice}\\
+                    &        b/se         &        b/se         \\
+\hline
+choice              &                     &                     \\
+Insurance           &       2.250\sym{***}&       2.267\sym{***}\\
+                    &     (0.050)         &     (0.051)         \\
+Nephrologist        &       1.181\sym{***}&       1.142\sym{***}\\
+                    &     (0.066)         &     (0.068)         \\
+Distance (km)       &      -0.374\sym{***}&      -0.388\sym{***}\\
+                    &     (0.014)         &     (0.015)         \\
+Occupancy           &       0.001\sym{*}  &       0.000         \\
+                    &     (0.000)         &     (0.000)         \\
+Adequacy            &                     &       1.887\sym{***}\\
+                    &                     &     (0.222)         \\
+\hline
+Observations        &       39178         &       36989         \\
+\hline\hline
+\end{tabular}
+\end{table}
