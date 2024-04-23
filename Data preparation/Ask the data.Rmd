@@ -876,6 +876,68 @@ stargazer(m_urea, m_hemo, m_surv, m_comp, m_sept, m_ktv, m_URR,
           notes.align = "l")
 
 
+mean_qual <- quality %>%
+  filter(depto=="01",
+         ZCAIMAE!="SENNIAD HEMO") %>% 
+  rename(IMAE=ZCAIMAE) %>% 
+  group_by(IMAE) %>% 
+  summarise(URR = mean(URR, na.rm = TRUE),
+            ktv = mean(ktv, na.rm = TRUE), 
+            sept = mean(sept, na.rm = TRUE),
+            surv = mean(surv, na.rm = TRUE),
+            tipo_imae2 = first(tipo_imae2))
+
+
+mean_non_adj_qual <- non_adj_quality %>%
+  filter(depto=="01",
+         IMAE!="SENNIAD HEMO") %>% 
+  group_by(IMAE) %>% 
+  summarise(URR = mean(URR, na.rm = TRUE),
+            ktv = mean(ktv, na.rm = TRUE), 
+            sept = mean(sept, na.rm = TRUE),
+            surv = mean(surv, na.rm = TRUE),
+            tipo_imae2 = first(tipo_imae2))
+
+
+mean_qual %>% 
+  ggplot(aes(y = URR, x = reorder(IMAE, -URR), fill = tipo_imae2)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  scale_fill_viridis_d(end = 0.8, name = "Provider type") +  # Adding legend title
+  theme(
+    legend.position = "bottom",
+    axis.title.x = element_blank(),  # Remove x-axis label
+    axis.title.y = element_blank(),  # Remove x-axis label
+    panel.background = element_rect(fill = "white"),  # Change background to white
+    panel.grid.major = element_line(color = "gray"),  # Change major gridlines to gray
+    panel.grid.minor = element_blank(),  # Remove minor gridlines
+    strip.background = element_blank()  # Remove background from facet titles
+  ) +
+  scale_x_discrete(labels = function(x) substr(x, nchar(x)-7, nchar(x))) +
+  coord_cartesian(ylim = c(0, 1))
+ggsave("mean_adjusted_URR.png", dpi = 500, scale=3)
+
+
+mean_non_adj_qual %>% 
+  ggplot(aes(y = URR, x = reorder(IMAE, -URR), fill = tipo_imae2)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  scale_fill_viridis_d(end = 0.8, name = "Provider type") +  # Adding legend title
+  theme(
+    legend.position = "bottom",
+    axis.title.x = element_blank(),  # Remove x-axis label
+    axis.title.y = element_blank(),  # Remove x-axis label
+    panel.background = element_rect(fill = "white"),  # Change background to white
+    panel.grid.major = element_line(color = "gray"),  # Change major gridlines to gray
+    panel.grid.minor = element_blank(),  # Remove minor gridlines
+    strip.background = element_blank()  # Remove background from facet titles
+  ) +
+  scale_x_discrete(labels = function(x) substr(x, nchar(x)-7, nchar(x))) +
+  coord_cartesian(ylim = c(0, 1))
+ggsave("mean_unadjusted_URR.png", dpi = 500, scale=3)
+
+
+
 ```
 
 
