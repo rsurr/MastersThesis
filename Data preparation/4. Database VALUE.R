@@ -306,7 +306,7 @@ write.csv(
 #    "Septic infections"=mean(sept, na.rm = T)*100
 #  ) %>% as.data.frame()
 
-non_adj_quality <- base %>% 
+non_adj_quality <- MENSUALES_HD2 %>% 
   group_by(ZCAIMAE, anio) %>% 
   summarise(urea=mean(urea17, na.rm = T),
             surv=mean(surv, na.rm = T),
@@ -524,6 +524,9 @@ ggsave("unadjusted.png", dpi = 500, scale=3)
 
 
 mean_qual <- quality %>%
+  filter(depto=="01",
+         ZCAIMAE!="SENNIAD HEMO") %>% 
+  rename(IMAE=ZCAIMAE) %>% 
   group_by(IMAE) %>% 
   summarise(URR = mean(URR, na.rm = TRUE),
             ktv = mean(ktv, na.rm = TRUE), 
@@ -533,6 +536,8 @@ mean_qual <- quality %>%
 
 
 mean_non_adj_qual <- non_adj_quality %>%
+  filter(depto=="01",
+         IMAE!="SENNIAD HEMO") %>% 
   group_by(IMAE) %>% 
   summarise(URR = mean(URR, na.rm = TRUE),
             ktv = mean(ktv, na.rm = TRUE), 
