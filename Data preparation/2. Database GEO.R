@@ -40,15 +40,19 @@ pacientes_sesiones_comparativo <-
   select(starts_with(c("lat", "long")))
 
 # Coordenadas IMAES
-IMAES_DIALISIS <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/IMAES DIALISIS.sav")
-Coord_IMAE <- read_csv("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/Coord IMAE.csv")
+IMAES_DIALISIS <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/IMAES DIALISIS.sav") %>% 
+  filter(IMA_DESC!="HOSPITAL ITALIANO")
+Coord_IMAE <- read_csv("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/Coord IMAE.csv") %>% 
+  filter(descripción!="HOSPITAL ITALIANO")
 
 IMAES <- left_join(IMAES_DIALISIS, Coord_IMAE, by=c("IMA_DESC"="descripción")) %>% 
   filter(!is.na(WKT)) %>% 
   mutate(long_Google = as.numeric(str_split(WKT, " ", simplify = T)[, 1]),
-         lat_Google = as.numeric(str_split(WKT, " ", simplify = T)[, 2])) 
+         lat_Google = as.numeric(str_split(WKT, " ", simplify = T)[, 2])) %>% 
+  arrange(IMA_ID) %>% 
+  mutate(id=row_number())
 
-dist <- distm(pacientes_sesiones_Google[c("long_Google", "lat_Google")], 
+distm <- distm(pacientes_sesiones_Google[c("long_Google", "lat_Google")], 
               IMAES[c("long_Google", "lat_Google")], fun = distGeo) 
 
 # The default unit of distance is meter
@@ -56,25 +60,26 @@ dist <- distm(pacientes_sesiones_Google[c("long_Google", "lat_Google")],
 
 #colnames(dist) <- as.vector(IMAES$IMA_DESC)
 
-GEO <- cbind(pacientes_sesiones_Google, dist)
+GEO <- cbind(pacientes_sesiones_Google, distm)
 
 # Get the names of the variables
 variable_names <- names(GEO)
 
-# Get the index of the last 41 variables
-last_41_indices <- (length(variable_names) - 40):length(variable_names)
+# Get the index of the last 40 variables
+last_40_indices <- (length(variable_names) - 39):length(variable_names)
 
 # Add the prefix "dist" to the names of the last 41 variables
-new_names <- paste0("dist", variable_names[last_41_indices])
+new_names <- paste0("dist", variable_names[last_40_indices])
 
 # Rename the variables in the dataset
-names(GEO)[last_41_indices] <- new_names
+names(GEO)[last_40_indices] <- new_names
 
-IMAE_num <- matrix(c(as.vector(IMAES$IMA_DESC), 1:41, 
-                     as.vector(IMAES$IMA_DEP_ID)), ncol=3) %>% 
+IMAE_num <- matrix(c(as.vector(IMAES$IMA_DESC),
+                     as.vector(IMAES$id),
+                     as.vector(IMAES$IMA_DEP_ID),
+                     as.vector(IMAES$IMA_ID)), ncol=4) %>% 
   as.data.frame() %>% 
-  rename(ZCAIMAE=V1, choice=V2, depto=V3) %>% 
-  filter(ZCAIMAE!="HOSPITAL ITALIANO")
+  rename(ZCAIMAE=V1, id=V2, depto=V3, num_choice=V4)
 
 write.csv(GEO, 
           "GEO.csv", row.names=F)
