@@ -3,7 +3,8 @@ library(tidyverse)
 library(haven)
 library(fastDummies)
 library(data.table)
-library(haven)
+library(zoo)
+
 
 
 IMAE_CENEU <- c("CE.DI.SA.", "CENEPA", "CANIMEL", "SEDIC", "INU", "URUGUAYANA")
@@ -266,7 +267,7 @@ INFORMES_IMAES_HD <- read_sav("~/Proyecto Tesis/Databases/INFORMES_IMAES_HD.sav"
          mes_solicitud=format(fecha3, "%Y-%m"))
 
 # IMAE_num ----
-IMAE_num <- read_csv("IMAE_num.csv") %>% filter(ZCAIMAE!="HOSPITAL ITALIANO")
+IMAE_num <- read_csv("IMAE_num.csv")
 
 # Congestion ----
 congestion <- INFORMES_IMAES_HD %>%
@@ -368,7 +369,7 @@ occupancy <- SESIONES_HD %>% select(ZPMD_IMAE, PMD_ANIO, PMD_MES, CAPACNUM, Date
 
 MEDICOS <- SESIONES_HD %>%
   left_join(IMAE_num, by=c("ZPMD_IMAE"="ZCAIMAE")) %>% # Column with facility number
-  rename(medimae=choice) %>% # Name facility number column "medimae"
+  rename(medimae=id) %>% # Name facility number column "medimae"
   filter(depto=="01", # Filter for facilities in Montevideo
          ZPMD_IMAE!="SENNIAD HEMO") %>% #Not pediatric
   group_by(ZB1RMEDICO, medimae, PMD_ANIO) %>% 
@@ -392,81 +393,101 @@ MEDICOS <- MEDICOS %>%
 
 # Delta peso ----
 
-dP <- SESIONES_HD %>%
-  rename(ZCAIMAE=ZPMD_IMAE) %>% 
-  mutate(DPESOSE=case_when(DPESOSE==999.00 ~ NA,
-                           .default = as.numeric(DPESOSE)),
-         DPESOPO=case_when(DPESOPO==999.00 ~ NA,
-                           .default = as.numeric(DPESOPO)),
-         dife_post=DPESOPO-DPESOSE,
-         dife_pre=DPESOPR-DPESOSE,
-         peso=case_when(abs(dife_post)<=0.5 ~ 1,
-                        abs(dife_post)>0.5 ~ 0,
-                        is.na(dife_post) ~ NA)) %>% 
-  select(peso, CAPACNUM, DPESOPR, DPESOPO, ZCAIMAE, PMD_ANIO, dife_post, 
-         dife_pre)
+#dP <- SESIONES_HD %>%
+#  rename(ZCAIMAE=ZPMD_IMAE) %>% 
+#  mutate(DPESOSE=case_when(DPESOSE==999.00 ~ NA,
+#                           .default = as.numeric(DPESOSE)),
+#         DPESOPO=case_when(DPESOPO==999.00 ~ NA,
+#                           .default = as.numeric(DPESOPO)),
+#         dife_post=DPESOPO-DPESOSE,
+#         dife_pre=DPESOPR-DPESOSE,
+#         peso=case_when(abs(dife_post)<=0.5 ~ 1,
+#                        abs(dife_post)>0.5 ~ 0,
+#                        is.na(dife_post) ~ NA)) %>% 
+#  select(peso, CAPACNUM, DPESOPR, DPESOPO, ZCAIMAE, PMD_ANIO, dife_post, 
+#         dife_pre)
+#
+## Reorder "anio" in increasing order
+#dP$anio <- factor(dP$PMD_ANIO, levels = sort(unique(dP$PMD_ANIO)))
+#
+## Reorder "ZCAIMAE" alphabetically
+#dP$ZCAIMAE <- factor(dP$ZCAIMAE, levels = sort(unique(dP$ZCAIMAE)))
+#
+## Set reference levels for anio, ZCAIMAE and CAPACNUM
+#base$anio <- relevel(base$anio, ref = "2004")
+#base$ZCAIMAE <- relevel(base$ZCAIMAE, ref = "ASOCIACION ESPAÑOLA")
+#base$CAPACNUM <- relevel(base$CAPACNUM, ref="344677")
+#
+#dP <- dP %>% unite("ZCAIMAEanio", ZCAIMAE:PMD_ANIO, sep=":", remove = FALSE) 
 
-# Reorder "anio" in increasing order
-dP$anio <- factor(dP$PMD_ANIO, levels = sort(unique(dP$PMD_ANIO)))
+#m_dP1 <- feols(peso ~ DPESOPR | ZCAIMAEanio + CAPACNUM, dP)
+#m_dP2 <- feols(peso ~ dife_pre | ZCAIMAEanio + CAPACNUM, dP)
+#m_dP3 <- feols(dife_post ~ DPESOPR | ZCAIMAEanio + CAPACNUM, dP)
+#m_dP4 <- feols(dife_post ~ dife_pre | ZCAIMAEanio + CAPACNUM, dP)
+#m_dP5 <- feols(DPESOPO ~ DPESOPR | ZCAIMAEanio + CAPACNUM, dP)
+#
+#delta_p1 <- fixef(m_dP1)$ZCAIMAEanio %>% as.data.frame() %>% 
+#  rownames_to_column("ZCAIMAEanio")
+#colnames(delta_p1) <- c("ZCAIMAEanio", "delta_p1")
+#
+#delta_p2 <- fixef(m_dP2)$ZCAIMAEanio %>% as.data.frame() %>% 
+#  rownames_to_column("ZCAIMAEanio")
+#colnames(delta_p2) <- c("ZCAIMAEanio", "delta_p2")
 
-# Reorder "ZCAIMAE" alphabetically
-dP$ZCAIMAE <- factor(dP$ZCAIMAE, levels = sort(unique(dP$ZCAIMAE)))
+#delta_p3 <- fixef(m_dP3)$ZCAIMAEanio %>% as.data.frame() %>% 
+#  rownames_to_column("ZCAIMAEanio")
+#colnames(delta_p3) <- c("ZCAIMAEanio", "delta_p3")
+#
+#delta_p4 <- fixef(m_dP4)$ZCAIMAEanio %>% as.data.frame() %>% 
+#  rownames_to_column("ZCAIMAEanio")
+#colnames(delta_p4) <- c("ZCAIMAEanio", "delta_p4")
+#
+#delta_p5 <- fixef(m_dP5)$ZCAIMAEanio %>% as.data.frame() %>% 
+#  rownames_to_column("ZCAIMAEanio")
+#colnames(delta_p5) <- c("ZCAIMAEanio", "delta_p5")
 
-# Set reference levels for anio, ZCAIMAE and CAPACNUM
-base$anio <- relevel(base$anio, ref = "2004")
-base$ZCAIMAE <- relevel(base$ZCAIMAE, ref = "ASOCIACION ESPAÑOLA")
-base$CAPACNUM <- relevel(base$CAPACNUM, ref="344677")
-
-dP <- dP %>% unite("ZCAIMAEanio", ZCAIMAE:PMD_ANIO, sep=":", remove = FALSE) 
-
-m_dP1 <- feols(peso ~ DPESOPR | ZCAIMAEanio + CAPACNUM, dP)
-m_dP2 <- feols(peso ~ dife_pre | ZCAIMAEanio + CAPACNUM, dP)
-m_dP3 <- feols(dife_post ~ DPESOPR | ZCAIMAEanio + CAPACNUM, dP)
-m_dP4 <- feols(dife_post ~ dife_pre | ZCAIMAEanio + CAPACNUM, dP)
-m_dP5 <- feols(DPESOPO ~ DPESOPR | ZCAIMAEanio + CAPACNUM, dP)
-
-delta_p1 <- fixef(m_dP1)$ZCAIMAEanio %>% as.data.frame() %>% 
-  rownames_to_column("ZCAIMAEanio")
-colnames(delta_p1) <- c("ZCAIMAEanio", "delta_p1")
-
-delta_p2 <- fixef(m_dP2)$ZCAIMAEanio %>% as.data.frame() %>% 
-  rownames_to_column("ZCAIMAEanio")
-colnames(delta_p2) <- c("ZCAIMAEanio", "delta_p2")
-
-delta_p3 <- fixef(m_dP3)$ZCAIMAEanio %>% as.data.frame() %>% 
-  rownames_to_column("ZCAIMAEanio")
-colnames(delta_p3) <- c("ZCAIMAEanio", "delta_p3")
-
-delta_p4 <- fixef(m_dP4)$ZCAIMAEanio %>% as.data.frame() %>% 
-  rownames_to_column("ZCAIMAEanio")
-colnames(delta_p4) <- c("ZCAIMAEanio", "delta_p4")
-
-delta_p5 <- fixef(m_dP5)$ZCAIMAEanio %>% as.data.frame() %>% 
-  rownames_to_column("ZCAIMAEanio")
-colnames(delta_p5) <- c("ZCAIMAEanio", "delta_p5")
-
-delta_p <- delta_p1 %>% 
-  left_join(delta_p2, join_by("ZCAIMAEanio")) %>%
-  left_join(delta_p3, join_by("ZCAIMAEanio")) %>%
-  left_join(delta_p4, join_by("ZCAIMAEanio")) %>%
-  left_join(delta_p5, join_by("ZCAIMAEanio")) %>%
-  separate(ZCAIMAEanio, sep = ":", into = c("ZCAIMAE", "anio")) %>% 
-  mutate(anio=as.double(anio))
+#delta_p <- delta_p1 %>% 
+#  left_join(delta_p2, join_by("ZCAIMAEanio")) %>%
+#  left_join(delta_p3, join_by("ZCAIMAEanio")) %>%
+#  left_join(delta_p4, join_by("ZCAIMAEanio")) %>%
+#  left_join(delta_p5, join_by("ZCAIMAEanio")) %>%
+#  separate(ZCAIMAEanio, sep = ":", into = c("ZCAIMAE", "anio")) %>% 
+#  mutate(anio=as.double(anio))
 
 
 # Dist ----
 
 GEO <- read_csv("GEO.csv")
 
-dist <- GEO  %>% 
+dist <- GEO %>% 
   filter(!is.na(dist18))  %>% # FILTRO PROVISORIO SACANDO PACIENTES CON DIST NA (60 OBS)
   filter(!is.na(long_Google), !is.na(lat_Google),
          lat_Google<(-34.7),
          long_Google<(-56)) %>% 
   select(CAPACNUM, starts_with("dist")) %>% 
   pivot_longer(cols = starts_with("dist"), names_to = "names", values_to = "dist") %>% 
-  separate(col = names, into = c("borrar", "num_choice"), sep = "t") %>% select(-borrar) %>% 
-  mutate(num_choice=as.double(num_choice))
+  separate(col = names, into = c("borrar", "id"), sep = "t") %>% select(-borrar) %>% 
+  mutate(id=as.double(id)) %>% 
+  left_join(IMAE_num, by="id") %>% 
+  filter(depto=="01") %>% mutate(num_choice=as.double(num_choice))
+
+
+# Dist_sim ----
+
+GEO_sim <- read_csv("GEO - Simulated.csv")
+
+dist_sim <- GEO_sim  %>% 
+  filter(!is.na(dist18))  %>% # FILTRO PROVISORIO SACANDO PACIENTES CON DIST NA (60 OBS)
+  filter(!is.na(long_Google), !is.na(lat_Google),
+         lat_Google<(-34.7),
+         long_Google<(-56)) %>% 
+  select(CAPACNUM, starts_with("dist")) %>% 
+  pivot_longer(cols = starts_with("dist"), names_to = "names", values_to = "dist_sim") %>% 
+  separate(col = names, into = c("borrar", "id"), sep = "t") %>% select(-borrar) %>% 
+  mutate(id=as.double(id)) %>% 
+  left_join(IMAE_num, by="id") %>% 
+  filter(depto=="01")
+
 
 # Delays ----
 
@@ -488,7 +509,8 @@ imaes <- INGRESOS_HD %>%
             chain=first(chain),
             transp=first(transp),
             tipo_imae=first(tipo_imae),
-            num_choice=first(choice),
+            num_choice=first(num_choice),
+            id=first(id),
             depto=first(depto))
 
 CAIMAE <- unique(imaes$CAIMAE)
@@ -533,13 +555,27 @@ Logit_INGRESOS <-
   left_join(X_imae, by=c("ID_CAIMAE"="CAIMAE", "mes_solicitud", "anio_solicitud")) %>% 
   left_join(MEDICOS, by=c("ZB1SMEDIC"="ZB1RMEDICO", "anio_solicitud"="PMDANIO")) %>%
   #left_join(delta_p, by=c("ZCAIMAE", "anio_solicitud"="anio")) %>% 
-  left_join(dist, by=c("CAPACNUM", "num_choice")) %>% 
+  left_join(dist, by=c("CAPACNUM", "num_choice", "ZCAIMAE", "id", "depto")) %>% 
+  left_join(dist_sim, by=c("CAPACNUM", "num_choice", "ZCAIMAE", "id", "depto")) %>% 
   mutate(inst=case_when(ZCASINST==ZCASINST_IMAE~1,
                         is.na(ZCASINST_IMAE)~0,
                               .default = 0),
-         medimae = ifelse(rowSums(select(., starts_with("medimae")) == num_choice, na.rm = TRUE) > 0, 1, 0),
-         distk=dist/1000) %>% 
-  select(-c(matches("^medimae[0-9]+$")))
+         medimae = 
+           ifelse(rowSums(select(., starts_with("medimae")) == id, 
+                          na.rm = TRUE) > 0, 1, 0),
+         distk=dist/1000,
+         distk_sim=dist_sim/1000) %>% 
+  select(-c(matches("^medimae[0-9]+$"))) %>% 
+  mutate(real_v_sim=distk_sim-distk)
+
+noSEDIC <- Logit_INGRESOS %>% filter(ZCAIMAE!="SEDIC")
+SEDIC <- Logit_INGRESOS %>% filter(ZCAIMAE=="SEDIC")
+
+comparacion <- Logit_INGRESOS %>% select(ZCAIMAE, distk, distk_sim, real_v_sim)
+
+summary(noSEDIC$real_v_sim)
+summary(SEDIC$real_v_sim)
+
 
 write_dta(Logit_INGRESOS, 
           "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/Logit_INGRESOS.dta",
