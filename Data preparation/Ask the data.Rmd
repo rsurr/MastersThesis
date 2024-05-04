@@ -479,6 +479,8 @@ my.max <- function(x) ifelse( !all(is.na(x)), max(x, na.rm=T), NA)
 
 MENSUALES_HD <- read_sav("~/Proyecto Tesis/Databases/MENSUALES HD.sav")
 
+SESIONES_HD <- read_sav("~/Proyecto Tesis/Databases/SESIONES HD.sav")
+
 PACIENTES <- 
   read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/PACIENTES.sav") %>% 
   select(CAPACNUM, PAC_SEXO)
@@ -504,15 +506,19 @@ MENSUALES_HD2 <- MENSUALES_HD %>%
   left_join(PACIENTES, by="CAPACNUM") %>%
   left_join(dife_peso, by=c("PMD_ANIO", "PMD_MES", "CAPACNUM")) %>% 
   select(CAPACNUM, ZPMD_IMAE, DDIAB, DCISQ, DEVP, PMD_ANIO, DTRABA, DFUMA, PMD_CANTBICA, 
-         PMD_ANIO, PMD_MES, tipo_inst, PAC_SEXO, CASEDADA,
+         PMD_ANIO, PMD_MES, tipo_inst, PAC_SEXO, CASEDADA, 
          ESAZOPR1, ESAZOPO1, ESAZOPR2, EMAZOEM, ESFOSF, EMHEMOG, ZPMD_ESTADO, 
          COMP, COMP1, COMP2, COMP3, ESKTV,
-         descom, coord, peso) %>% 
+         descom, coord, peso,
+         PAC_FEC_NAC, fecha_solicitud, fecha_autorizacion) %>% 
   rename(ZCAIMAE=ZPMD_IMAE) %>% 
-  #unite("fecha", PMD_ANIO:PMD_MES, sep="-", remove=FALSE) %>%
+  unite("mes_mensual", c(PMD_ANIO,PMD_MES), sep="-", remove=FALSE) %>% 
+  mutate(fecha_mensual = as.Date(paste(mes_mensual, "-01", sep=""))) %>% 
   filter(ZCAIMAE!="SENNIAD HEMO",
          ZCAIMAE!="IMAE A CONFIRMAR") %>% 
   mutate(
+    edad = as.numeric(difftime(fecha_mensual, PAC_FEC_NAC, 
+                                    units = "days") / 365.25),
     ZCAIMAE=if_else(ZCAIMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZCAIMAE),
     #Date = as.Date(paste(fecha, "-01", sep="")),
     #mes=format(Date, "%Y-%m"),
@@ -559,11 +565,11 @@ MENSUALES_HD2 <- MENSUALES_HD %>%
     descom=case_when(
       descom=="S" ~ 1,
       descom=="N" ~ 0,
-      descom=="D" ~ as.numeric(NA)),
+      descom=="D" ~ 0),
     coord=case_when(
       coord=="S" ~ 1,
       coord=="N" ~ 0,
-      .default = as.numeric(NA)),
+      .default = 0),
     URR=if_else(!is.na(ESAZOPR1), 
                 (ESAZOPR1-ESAZOPO1)/ESAZOPR1,
                 (ESAZOPR2-ESAZOPO1)/ESAZOPR2),
@@ -941,7 +947,7 @@ ggsave("mean_unadjusted_URR.png", dpi = 500, scale=3)
 ```
 
 
-# ¿Cuántas diálisis en el Clínicas 2023?
+# 14. ¿Cuántas diálisis en el Clínicas 2023?
 
 ```{r}
 
@@ -958,27 +964,179 @@ summary(HC$n)
 # Bendita descriptiva pacientes
 
 ```{r}
+library(readr)
+IMAE_num <- read_csv("IMAE_num.csv") 
 
-tabla_pacientes <- MENSUALES_HD2 %>% 
-  left_join(imaes, by="ZCAIMAE") %>%
+
+
+my.max <- function(x) ifelse( !all(is.na(x)), max(x, na.rm=T), NA)
+my.min <- function(x) ifelse( !all(is.na(x)), min(x, na.rm=T), NA)
+
+MENSUALES_HD3 <- MENSUALES_HD %>% 
+  right_join(INGRESOS_HD, by="CAPACNUM") %>% 
+  left_join(PACIENTES, by="CAPACNUM") %>%
+  left_join(dife_peso, by=c("PMD_ANIO", "PMD_MES", "CAPACNUM")) %>% 
+  select(CAPACNUM, ZPMD_IMAE, DDIAB, DCISQ, DEVP, PMD_ANIO, DTRABA, DFUMA, PMD_CANTBICA, 
+         PMD_ANIO, PMD_MES, tipo_inst, PAC_SEXO, CASEDADA, 
+         ESAZOPR1, ESAZOPO1, ESAZOPR2, EMAZOEM, ESFOSF, EMHEMOG, ZPMD_ESTADO, 
+         COMP, COMP1, COMP2, COMP3, ESKTV,
+         descom, coord, peso,
+         PAC_FEC_NAC, fecha_solicitud, fecha_autorizacion) %>% 
+  rename(ZCAIMAE=ZPMD_IMAE) %>% 
+  unite("mes_mensual", c(PMD_ANIO,PMD_MES), sep="-", remove=FALSE) %>% 
+  mutate(fecha_mensual = as.Date(paste(mes_mensual, "-01", sep=""))) %>% 
+  filter(ZCAIMAE!="SENNIAD HEMO",
+         ZCAIMAE!="IMAE A CONFIRMAR") %>% 
+  mutate(
+    edad = as.numeric(difftime(fecha_mensual, PAC_FEC_NAC, 
+                                    units = "days") / 365.25),
+    ZCAIMAE=if_else(ZCAIMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZCAIMAE),
+    #Date = as.Date(paste(fecha, "-01", sep="")),
+    #mes=format(Date, "%Y-%m"),
+    DDIAB=case_when(
+      DDIAB=="S" ~ 1,
+      DDIAB=="N" ~ 0,
+      DDIAB=="D" ~ as.numeric(NA),
+      .default = as.numeric(NA)),
+    DCISQ=case_when(
+      DCISQ=="S" ~ 1,
+      DCISQ=="N" ~ 0,
+      DCISQ=="D" ~ as.numeric(NA),
+      .default = as.numeric(NA)),
+    DEVP=case_when(
+      DEVP=="S" ~ 1,
+      DEVP=="N" ~ 0,
+      DEVP=="D" ~ as.numeric(NA),
+      .default = as.numeric(NA)),
+    DTRABA=case_when(
+      DTRABA=="S" ~ 1,
+      DTRABA=="N" ~ 0,
+      DTRABA=="D" ~ as.numeric(NA),
+      .default = as.numeric(NA)),
+    DFUMA=case_when(
+      DFUMA=="S" ~ 1,
+      DFUMA=="N" ~ 0,
+      DFUMA=="D" ~ as.numeric(NA),
+      .default = as.numeric(NA)),
+    ASSE=case_when(
+      tipo_inst=="ASSE" ~ 1,
+      .default = 0),
+    IAMC_IAMPP=case_when(
+      tipo_inst=="IAMC/IAMPP" ~ 1,
+      .default = 0),
+    CORPORATIVO=case_when(
+      tipo_inst=="CORPORATIVO" ~ 1,
+      .default = 0),
+    PRIVADO=case_when(
+      tipo_inst=="SEGURO PRIVADO" ~ 1,
+      .default = 0),
+    mujer=case_when(
+      PAC_SEXO=="F" ~ 1,
+      .default = 0),
+    descom=case_when(
+      descom=="S" ~ 1,
+      descom=="N" ~ 0,
+      descom=="D" ~ 0),
+    coord=case_when(
+      coord=="S" ~ 1,
+      coord=="N" ~ 0,
+      .default = 0),
+    URR=if_else(!is.na(ESAZOPR1), 
+                (ESAZOPR1-ESAZOPO1)/ESAZOPR1,
+                (ESAZOPR2-ESAZOPO1)/ESAZOPR2),
+    URR65=case_when(URR>=0.65 ~ 1,
+                    URR<0.65 ~ 0),
+    urea17=case_when(EMAZOEM<1.7 ~ 1,
+                     EMAZOEM>=1.7 ~ 0),
+    fosf55=case_when(ESFOSF<5.5 ~ 1,
+                     ESFOSF>=5.5 ~ 0),
+    hemo10=case_when(EMHEMOG>=10 ~ 1,
+                     EMHEMOG<10 ~ 0),
+    surv=case_when(ZPMD_ESTADO!="FALLECIMIENTO" ~ 1,
+                   ZPMD_ESTADO=="FALLECIMIENTO" ~ 0),
+    comp=case_when(COMP=="S" ~ 0,
+                   COMP=="N" ~ 1,
+                   COMP=="D" | COMP=="D" | COMP==NA ~ NA),
+    sept=case_when(COMP1 %in% c(184010162, 184010183, 184010159, 184010160, 184010161) |
+                     COMP2 %in% c(184010162, 184010183, 184010159, 184010160, 184010161) |
+                     COMP3 %in% c(184010162, 184010183, 184010159, 184010160, 184010161) ~ 0,
+                   COMP=="N" ~ 1,
+                   COMP=="D" | COMP=="D" | COMP==NA ~ NA),
+    ktv12=case_when(ESKTV>=1.2 ~ 1,
+                         ESKTV<1.2 ~ 0)
+  ) %>%
+  group_by(CAPACNUM, PMD_ANIO) %>% 
+  mutate(
+    DDIAB=my.max(DDIAB),
+    DCISQ=my.max(DCISQ),
+    DEVP=my.max(DEVP),
+    DTRABA=my.max(DTRABA),
+    DFUMA=my.max(DFUMA),
+  ) %>%
+  ungroup() %>% 
+  group_by(CAPACNUM) %>% 
+  arrange(PMD_ANIO, PMD_MES) %>% 
+  mutate(meses=row_number()) 
+
+
+IMAE_num <- IMAE_num %>%
+  mutate(
+  tipo_imae=
+      case_when(ZCAIMAE %in% c(IMAE_CENEU, IMAE_NEPHROS, IMAE_DIAVERUM, IMAE_SARI) ~ "INDEPENDIENTE",
+                ZCAIMAE %in% IMAE_PUBLICO ~ "PUBLICO",
+                ZCAIMAE %in% IMAE_PRIVADO ~ "PRIVADO",
+                TRUE ~ NA)
+  )
+
+imaes <- INGRESOS_HD %>% group_by(ZCAIMAE) %>% summarise(CAIMAE=first(CAIMAE))
+
+pacientes <- MENSUALES_HD3 %>% 
+  left_join(IMAE_num, by="ZCAIMAE") %>%
       filter(depto=="01", # Filter for facilities in Montevideo
          ZCAIMAE!="SENNIAD HEMO") %>% 
+  mutate(dead=if_else(ZPMD_ESTADO=="FALLECIMIENTO", 1, 0)) %>% 
+  group_by(CAPACNUM) %>% 
+  summarize(
+    dead = max(dead),
+    edad_min = my.min(edad),
+    edad_max = my.max(edad),
+    meses = max(meses, na.rm = TRUE),
+    PMD_CANTBICA = mean(PMD_CANTBICA, na.rm = TRUE),
+    mujer = first(mujer, na.rm = TRUE),
+    ASSE = first(ASSE, na.rm = TRUE),
+    IAMC_IAMPP = mean(IAMC_IAMPP, na.rm = TRUE),
+    CORPORATIVO = mean(CORPORATIVO, na.rm = TRUE),
+    DDIAB = mean(DDIAB, na.rm = TRUE),
+    DCISQ = mean(DCISQ, na.rm = TRUE),
+    DEVP = mean(DEVP, na.rm = TRUE),
+    DTRABA = mean(DTRABA, na.rm = TRUE),
+    DFUMA = mean(DFUMA, na.rm = TRUE),
+    descom = mean(descom, na.rm = TRUE),
+    coord = mean(coord, na.rm = TRUE),
+    tipo_imae=first(tipo_imae)
+  ) 
+
+tabla_pacientes <- pacientes %>% 
   group_by(tipo_imae) %>% 
   summarize(
-    Age = mean(CASEDADA, na.rm = TRUE),
-   "Months on dialysis" = max(meses, na.rm = TRUE),
+  "# patients" = n(),
+   "Age at start" = mean(edad_min, na.rm = TRUE),
+   "Age at start | Dead" = mean(edad_min[dead==1], na.rm = TRUE),
+   "Age at death" = mean(edad_max[dead==1], na.rm = TRUE),
+   "Months on dialysis" = mean(meses, na.rm = TRUE),
+   "Months on dialysis | Dead" = mean(meses[dead==1], na.rm = TRUE),
     "Monthly sessions" = mean(PMD_CANTBICA, na.rm = TRUE),
     Female = mean(mujer, na.rm = TRUE)*100,
     ASSE = mean(ASSE, na.rm = TRUE)*100,
     IAMC_IAMPP = mean(IAMC_IAMPP, na.rm = TRUE)*100,
     Corporate = mean(CORPORATIVO, na.rm = TRUE)*100,
     Diabetic = mean(DDIAB, na.rm = TRUE)*100,
-   Cardiopathy= mean(DCISQ, na.rm = TRUE)*100,
+    Cardiopathy= mean(DCISQ, na.rm = TRUE)*100,
     Vascular = mean(DEVP, na.rm = TRUE)*100,
     Working = mean(DTRABA, na.rm = TRUE)*100,
     Smoking = mean(DFUMA, na.rm = TRUE)*100,
     "Decompensated start" = mean(descom, na.rm = TRUE)*100,
-   "Coordinated start" = mean(coord, na.rm = TRUE)*100)  %>% 
+    "Coordinated start" = mean(coord, na.rm = TRUE)*100)  %>% 
   pivot_longer(cols=c(everything(), -tipo_imae), names_to = "Indicator", values_to = "Value") %>% 
   pivot_wider(values_from="Value", names_from = "tipo_imae") %>% 
   mutate_if(is.numeric, round, digits=2) %>% 
@@ -987,8 +1145,227 @@ tabla_pacientes <- MENSUALES_HD2 %>%
     "Private ins"=PRIVADO,
     "Independent"=INDEPENDIENTE)
   
+tabla_pacientes <- pacientes %>% 
+  group_by(tipo_imae) %>% 
+  summarize(
+    "# patients" = paste0(round(n(), 2)),
+    "Age at start" = paste0(round(mean(edad_min, na.rm = TRUE), 2), " (",
+                            round(sd(edad_min, na.rm = TRUE), 2), ")"),
+    "Age at start | Dead" = paste0(round(mean(edad_min[dead==1], na.rm = TRUE), 2), " (",
+                                   round(sd(edad_min[dead==1], na.rm = TRUE), 2), ")"),
+    "Age at death" = paste0(round(mean(edad_max[dead==1], na.rm = TRUE), 2), " (",
+                            round(sd(edad_max[dead==1], na.rm = TRUE), 2), ")"),
+    "Months on dialysis" = paste0(round(mean(meses, na.rm = TRUE), 2), " (",
+                                  round(sd(meses, na.rm = TRUE), 2), ")"),
+    "Months on dialysis | Dead" = paste0(round(mean(meses[dead==1], na.rm = TRUE), 2), " (",
+                                         round(sd(meses[dead==1], na.rm = TRUE), 2), ")"),
+    "Monthly sessions" = paste0(round(mean(PMD_CANTBICA, na.rm = TRUE), 2), " (",
+                                round(sd(PMD_CANTBICA, na.rm = TRUE), 2), ")"),
+    Female = paste0(round(mean(mujer, na.rm = TRUE)*100, 2), "%"),
+    ASSE = paste0(round(mean(ASSE, na.rm = TRUE)*100, 2), "%"),
+    IAMC_IAMPP = paste0(round(mean(IAMC_IAMPP, na.rm = TRUE)*100, 2), "%"),
+    Corporate = paste0(round(mean(CORPORATIVO, na.rm = TRUE)*100, 2), "%"),
+    Diabetic = paste0(round(mean(DDIAB, na.rm = TRUE)*100, 2), "%"),
+    Cardiopathy = paste0(round(mean(DCISQ, na.rm = TRUE)*100, 2), "%"),
+    Vascular = paste0(round(mean(DEVP, na.rm = TRUE)*100, 2), "%"),
+    Working = paste0(round(mean(DTRABA, na.rm = TRUE)*100, 2), "%"),
+    Smoking = paste0(round(mean(DFUMA, na.rm = TRUE)*100, 2), "%"),
+    "Decompensated start" = paste0(round(mean(descom, na.rm = TRUE)*100, 2), "%"),
+    "Coordinated start" = paste0(round(mean(coord, na.rm = TRUE)*100, 2), "%")
+  ) %>% 
+  pivot_longer(cols=c(everything(), -tipo_imae), names_to = "Indicator", values_to = "Value") %>% 
+  pivot_wider(values_from="Value", names_from = "tipo_imae") %>% 
+  mutate_if(is.numeric, round, digits=2) %>% 
+  rename(
+    "Public ins" = PUBLICO,
+    "Private ins" = PRIVADO,
+    "Independent" = INDEPENDIENTE
+  )
 
-print(xtable::xtable(tabla_pacientes, file="tabla_pacientes.tex"))
+tabla_pacientes <- pacientes %>% 
+  group_by(tipo_imae) %>% 
+  summarize(
+    "# patients" = paste0(round(n(), 2)),
+    "Age at start" = paste0(round(mean(edad_min, na.rm = TRUE), 2)),
+    "Age at start | Dead" = paste0(round(mean(edad_min[dead==1], na.rm = TRUE), 2)),
+    "Age at death" = paste0(round(mean(edad_max[dead==1], na.rm = TRUE), 2)),
+    "Months on dialysis" = paste0(round(mean(meses, na.rm = TRUE), 2)),
+    "Months on dialysis | Dead" = paste0(round(mean(meses[dead==1], na.rm = TRUE), 2)),
+    "Monthly sessions" = paste0(round(mean(PMD_CANTBICA, na.rm = TRUE), 2)),
+    Female = paste0(round(mean(mujer, na.rm = TRUE)*100, 2), "%"),
+    ASSE = paste0(round(mean(ASSE, na.rm = TRUE)*100, 2), "%"),
+    IAMC_IAMPP = paste0(round(mean(IAMC_IAMPP, na.rm = TRUE)*100, 2), "%"),
+    Diabetic = paste0(round(mean(DDIAB, na.rm = TRUE)*100, 2), "%"),
+    Cardiopathy = paste0(round(mean(DCISQ, na.rm = TRUE)*100, 2), "%"),
+    Smoking = paste0(round(mean(DFUMA, na.rm = TRUE)*100, 2), "%"),
+    "Decompensated start" = paste0(round(mean(descom, na.rm = TRUE)*100, 2), "%"),
+  ) %>% 
+  pivot_longer(cols=c(everything(), -tipo_imae), names_to = "Indicator", values_to = "Value") %>% 
+  pivot_wider(values_from="Value", names_from = "tipo_imae") %>% 
+  mutate_if(is.numeric, round, digits=2) %>% 
+  rename(
+    "Public ins" = PUBLICO,
+    "Private ins" = PRIVADO,
+    "Independent" = INDEPENDIENTE
+  )
+
+print(xtable::xtable(tabla_pacientes, file="tabla_pacientes.tex",
+                     align = c("l", "l", "c", "c", "c"),
+                     caption = "Patients entering dialysis 2003-2017 in Montevideo"), include.rownames=FALSE)
+
+
+```
+
+
+# 18. Edad en INGRESOS_HD (muchos missings) vs fecha de nacimiento en PACIENTES_HD
+
+```{r}
+PACIENTES <- 
+  read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/PACIENTES.sav")
+
+comparar <- MENSUALES_HD %>%
+  left_join(INGRESOS_HD, by="CAPACNUM") %>% 
+  left_join(PACIENTES, by="CAPACNUM") %>% 
+  select(CASEDADA, PAC_FEC_NAC, fecha_solicitud)
+
+summary(comparar$CASEDADA)
+```
+
+# Quiénes están en MENSUALES, quiénes en INGRESOS, quienes en los dos
+
+```{r}
+
+mens <- MENSUALES_HD %>% mutate(mens=1) %>% select(CAPACNUM, mens, PMD_ANIO)
+ingr <- INGRESOS_HD %>% mutate(ingr=1) %>% select(CAPACNUM, ingr, anio_solicitud)
+
+ambos <- left_join(mens, ingr, by="CAPACNUM") %>% 
+  mutate(mens=if_else(is.na(mens), 0, mens),
+         ingr=if_else(is.na(ingr), 0, ingr),
+         ambos=if_else(mens==1 & ingr==1, 1, 0),
+         tipo=case_when(mens==1 & ingr==1 ~ "ambos",
+                        mens==1 & ingr==0 ~ "mens",
+                        mens==0 & ingr==1 ~ "ingr"))
+
+
+
+anios <- ambos %>% group_by(anio_solicitud) %>% 
+  summarise(ambos=mean(ambos, na.rm=T))
+
+summ <- ambos %>% 
+  group_by(CAPACNUM) %>% 
+  summarise(months=n(),
+            tipo=first(tipo)) %>% 
+  group_by(tipo) %>% 
+  summarise(months=mean(months))
+
+summary(ambos)
+
+```
+
+
+# Variable de habilitados hecha "a mano" y variable de ocupación mirando pacientes en MENSUALES con origen en el centro
+
+```{r}
+library(haven)
+MENSUALES_HD <- read_sav("~/Proyecto Tesis/Databases/MENSUALES HD.sav")
+
+pacientes_mensuales <- MENSUALES_HD %>% 
+  unite("fecha2", PMD_ANIO:PMD_MES, sep="-") %>% 
+  mutate(fecha3=as.Date(paste(fecha2, "-01", sep=""))) %>% 
+  filter(PMD_ORIG=="Del centro") %>% 
+  rename(CAIMAE=PMD_IMAE) %>% 
+  group_by(CAIMAE, fecha3) %>% summarize(n_capacnum=n_distinct(CAPACNUM))
+
+capacity <- INFORMES_IMAES_HD %>% 
+  mutate(fecha3=as.Date(paste(fecha2, "-01", sep=""))) %>% 
+  select(CAIMAE, CAHMSPBN, CAHMSPBP, fecha3, DNLUT, DNMAT)
+
+pacmens_capacity <- pacientes_mensuales %>% 
+  left_join(capacity, by=c("fecha3", "CAIMAE")) %>% 
+  mutate(habilitados=CAHMSPBN*(DNLUT+DNMAT),
+         slack_hab=habilitados-n_capacnum,
+         slack_CAH=CAHMSPBN-n_capacnum,
+         habilitados_def=if_else(abs(slack_hab)<abs(slack_CAH),
+                                 habilitados, CAHMSPBN),
+         slack_def=habilitados_def-n_capacnum,
+         mes_solicitud=format(fecha3, "%Y-%m"),
+         ID_CAIMAE=as.character(CAIMAE)) %>% 
+  ungroup() %>% 
+  select(ID_CAIMAE, mes_solicitud, habilitados_def, slack_def, n_capacnum)
+
+```
+
+
+# Margen intensivo
+
+```{r}
+library(haven)
+MENSUALES_HD <- read_sav("~/Proyecto Tesis/Databases/MENSUALES HD.sav")
+
+imaes <- imaes %>% 
+  rename(ID_CAIMAE=num_choice)
+
+pacientes_mensuales <- MENSUALES_HD %>% 
+  unite("fecha2", PMD_ANIO:PMD_MES, sep="-") %>% 
+  mutate(fecha3=as.Date(paste(fecha2, "-01", sep=""))) %>% 
+  filter(PMD_ORIG=="Del centro") %>% 
+  rename(CAIMAE=PMD_IMAE) %>% 
+  group_by(CAIMAE, fecha3) %>% summarize(n_capacnum=n_distinct(CAPACNUM))
+
+capacity <- INFORMES_IMAES_HD %>% 
+  mutate(fecha3=as.Date(paste(fecha2, "-01", sep=""))) %>% 
+  select(CAIMAE, CAHMSPBN, CAHMSPBP, fecha3, DNLUT, DNMAT)
+
+pacmens_capacity <- pacientes_mensuales %>% 
+  left_join(capacity, by=c("fecha3", "CAIMAE")) %>% 
+  left_join(imaes, by=c("CAIMAE")) %>% 
+    filter(depto=="01",
+         ZCAIMAE!="SENNIAD HEMO") %>% 
+  mutate(habilitados=CAHMSPBN*(DNLUT+DNMAT),
+         slack_hab=habilitados-n_capacnum,
+         slack_CAH=CAHMSPBN-n_capacnum,
+         habilitados_def=if_else(abs(slack_hab)<abs(slack_CAH),
+                                 habilitados, CAHMSPBN),
+         slack_def=habilitados_def-n_capacnum,
+         mes_solicitud=format(fecha3, "%Y-%m"),
+         ID_CAIMAE=as.character(CAIMAE))  %>%
+  mutate(tipo_imae2=case_when(tipo_imae=="INDEPENDIENTE" ~ "Indep",
+                                tipo_imae=="PRIVADO" ~ "Priv Ins",
+                                tipo_imae=="PUBLICO" ~ "Pub Ins"),
+         tipo_imae3=case_when(tipo_imae2!="Pub Ins" ~ tipo_imae2,
+                              ZCAIMAE=="HOSPITAL DE CLINICAS" ~ "Clinicas",
+                              ZCAIMAE=="HOSPITAL MACIEL" ~ "Maciel")) %>% 
+  ungroup() %>% 
+  select(ID_CAIMAE, mes_solicitud, habilitados_def, slack_def, n_capacnum, tipo_imae3, tipo_imae2, fecha3, depto, ZCAIMAE)
+
+pacmens_capacity %>% 
+  filter(depto=="01",
+         ZCAIMAE!="SENNIAD HEMO",
+         n_capacnum>1) %>% 
+  group_by(tipo_imae3, fecha3) %>% 
+  summarize(Patients=mean(n_capacnum, na.rm = T),
+            Stations=mean(habilitados_def, na.rm = T)) %>% 
+  pivot_longer(cols=c("Patients", "Stations"), values_to = "values", names_to = "Indicator") %>% 
+ggplot(aes(x=fecha3, y=values, color=Indicator)) + geom_line() + facet_wrap( ~ tipo_imae3, nrow=2) + 
+  theme(
+        legend.position = "bottom",
+    axis.title.x = element_blank(),  # Remove x-axis label
+    panel.grid.minor = element_blank(),  # Remove minor gridlines
+    strip.background = element_blank()  # Remove background from facet titles
+  ) +
+  scale_color_viridis_d(begin=0.5, end=0.8) + 
+  labs(y="Average monthly count") 
+ggsave("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/Fleitas_Abril/patients_stations.png", dpi = 2000)
+
+pacmens_capacity %>% 
+  filter(depto=="01",
+         ZCAIMAE!="SENNIAD HEMO",
+         n_capacnum>1) %>% 
+  group_by(tipo_imae2, fecha3) %>% 
+  summarize(n_capacnum=mean(n_capacnum, na.rm = T),
+            habilitados_def=mean(habilitados_def, na.rm = T)) %>% 
+  pivot_longer(cols=c("habilitados_def", "n_capacnum"), values_to = "values", names_to = "indicator") %>% 
+ggplot(aes(x=fecha3, y=values, color=indicator)) + geom_line() + facet_wrap( ~ tipo_imae2)
 
 
 ```
