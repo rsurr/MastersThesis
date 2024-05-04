@@ -5,8 +5,6 @@ library(fastDummies)
 library(data.table)
 library(zoo)
 
-
-
 IMAE_CENEU <- c("CE.DI.SA.", "CENEPA", "CANIMEL", "SEDIC", "INU", "URUGUAYANA")
 
 IMAE_NEPHROS <- c("NEPHROS", "UDIR", "SANEF")
@@ -313,7 +311,7 @@ congestion <- INFORMES_IMAES_HD %>%
       if_else(slack>=10,
               (CAHMSPBN/promedio_turnos_semana)-Nmean, slack),
     slack_perc2=slack2/CAHMSPBN*100) %>% 
-  select(slack2, slack_perc2, 
+  select(CAHMSPBN, slack2, slack_perc2, 
          CAIMAE, mes_solicitud)
 
 # Imae_inst ----
@@ -497,6 +495,35 @@ delays <- INGRESOS_HD %>%
   group_by(ZCAIMAE, anio_solicitud) %>% 
   summarise(delays=mean(delays, na.rm = T))
 
+# Habilitados_def
+
+library(haven)
+MENSUALES_HD <- read_sav("~/Proyecto Tesis/Databases/MENSUALES HD.sav")
+
+pacientes_mensuales <- MENSUALES_HD %>% 
+  unite("fecha2", PMD_ANIO:PMD_MES, sep="-") %>% 
+  mutate(fecha3=as.Date(paste(fecha2, "-01", sep=""))) %>% 
+  filter(PMD_ORIG=="Del centro") %>% 
+  rename(CAIMAE=PMD_IMAE) %>% 
+  group_by(CAIMAE, fecha3) %>% summarize(n_capacnum=n_distinct(CAPACNUM))
+
+capacity <- INFORMES_IMAES_HD %>% 
+  mutate(fecha3=as.Date(paste(fecha2, "-01", sep=""))) %>% 
+  select(CAIMAE, CAHMSPBN, CAHMSPBP, fecha3, DNLUT, DNMAT)
+
+pacmens_capacity <- pacientes_mensuales %>% 
+  left_join(capacity, by=c("fecha3", "CAIMAE")) %>% 
+  mutate(habilitados=CAHMSPBN*(DNLUT+DNMAT),
+         slack_hab=habilitados-n_capacnum,
+         slack_CAH=CAHMSPBN-n_capacnum,
+         habilitados_def=if_else(abs(slack_hab)<abs(slack_CAH),
+                                 habilitados, CAHMSPBN),
+         slack_def=habilitados_def-n_capacnum,
+         mes_solicitud=format(fecha3, "%Y-%m"),
+         ID_CAIMAE=as.character(CAIMAE)) %>% 
+  ungroup() %>% 
+  select(ID_CAIMAE, mes_solicitud, habilitados_def, slack_def, n_capacnum)
+
 # X_imae ----
 
 imaes <- INGRESOS_HD %>%
@@ -539,7 +566,7 @@ X_imae <-
 
 Logit_INGRESOS <- 
   INGRESOS_HD %>%
-  left_join(IMAE_num, by="ZCAIMAE") %>% 
+  left_join(IMAE_num, by="ZCAIMAE") %>%
   filter(depto=="01",
          ZCAIMAE!="SENNIAD HEMO") %>%
   select(CAIMAE, anio_solicitud, CAPACNUM, ZCASINST,
@@ -552,6 +579,7 @@ Logit_INGRESOS <-
   dummy_cols(select_columns = "CAIMAE") %>% 
   pivot_longer(cols=starts_with("CAIMAE_"), names_to=c("borrar","ID_CAIMAE"), values_to = "choice", names_sep = "_") %>% 
   select(-c(borrar, CAIMAE)) %>% 
+  left_join(pacmens_capacity, by=c("ID_CAIMAE", "mes_solicitud")) %>% 
   left_join(X_imae, by=c("ID_CAIMAE"="CAIMAE", "mes_solicitud", "anio_solicitud")) %>% 
   left_join(MEDICOS, by=c("ZB1SMEDIC"="ZB1RMEDICO", "anio_solicitud"="PMDANIO")) %>%
   #left_join(delta_p, by=c("ZCAIMAE", "anio_solicitud"="anio")) %>% 
@@ -567,14 +595,6 @@ Logit_INGRESOS <-
          distk_sim=dist_sim/1000) %>% 
   select(-c(matches("^medimae[0-9]+$"))) %>% 
   mutate(real_v_sim=distk_sim-distk)
-
-noSEDIC <- Logit_INGRESOS %>% filter(ZCAIMAE!="SEDIC")
-SEDIC <- Logit_INGRESOS %>% filter(ZCAIMAE=="SEDIC")
-
-comparacion <- Logit_INGRESOS %>% select(ZCAIMAE, distk, distk_sim, real_v_sim)
-
-summary(noSEDIC$real_v_sim)
-summary(SEDIC$real_v_sim)
 
 
 write_dta(Logit_INGRESOS, 
