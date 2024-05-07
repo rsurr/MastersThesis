@@ -254,6 +254,10 @@ Solo hay datos para diciembre, ¿por qué? (Preguntar a Opertti).
 
 ```{r}
 
+
+SESIONES_HD <- 
+  read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/SESIONES HD.sav")
+
 IMAE_ingreso <- INGRESOS_HD %>% rename(IMAE_ingreso=ZCAIMAE)
 
 cambios <- SESIONES_HD %>%
@@ -472,18 +476,29 @@ print(xtable::xtable(LI_todos, file="patientdecision.tex"))
 ```
 
 
-# 13. Los pacientes pasan a ser diabéticos?
+# 13. CALIDAD QUALITY
 
 ```{r}
 my.max <- function(x) ifelse( !all(is.na(x)), max(x, na.rm=T), NA)
 
 MENSUALES_HD <- read_sav("~/Proyecto Tesis/Databases/MENSUALES HD.sav")
 
-SESIONES_HD <- read_sav("~/Proyecto Tesis/Databases/SESIONES HD.sav")
+#SESIONES_HD <- read_sav("~/Proyecto Tesis/Databases/SESIONES HD.sav")
 
 PACIENTES <- 
   read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/PACIENTES.sav") %>% 
-  select(CAPACNUM, PAC_SEXO)
+  select(CAPACNUM, PAC_SEXO, PAC_FEC_NAC)
+
+GEO <- read_csv("GEO.csv")
+
+dist <- GEO %>% 
+  filter(!is.na(dist18))  %>% # FILTRO PROVISORIO SACANDO PACIENTES CON DIST NA (60 OBS)
+  select(CAPACNUM, starts_with("dist")) %>% 
+  pivot_longer(cols = starts_with("dist"), names_to = "names", values_to = "dist") %>% 
+  separate(col = names, into = c("borrar", "id"), sep = "t") %>% select(-borrar) %>% 
+  mutate(id=as.double(id)) %>% 
+  left_join(IMAE_num, by="id") %>% select(-ZCAIMAE) %>% 
+  filter(depto=="01") %>% mutate(num_choice=as.double(num_choice))
 
 INGRESOS_HD <- INGRESOS_HD %>% select(CAPACNUM, tipo_inst, B1SNIVEL, CASEDADA, 
                                       AAFAVTI, AAFAVTO, AACATP, AACATT, AAPRIMHD,
@@ -502,14 +517,18 @@ dife_peso <- SESIONES_HD %>%
                         is.na(dife) ~ NA))
 
 MENSUALES_HD2 <- MENSUALES_HD %>% 
-  left_join(INGRESOS_HD, by="CAPACNUM") %>% 
+  right_join(INGRESOS_HD, by="CAPACNUM") %>% 
   left_join(PACIENTES, by="CAPACNUM") %>%
-  left_join(dife_peso, by=c("PMD_ANIO", "PMD_MES", "CAPACNUM")) %>% 
+  #left_join(dist, by=c("CAPACNUM", "PMD_IMAE"="num_choice")) %>%
+  #left_join(dife_peso, by=c("PMD_ANIO", "PMD_MES", "CAPACNUM")) %>% 
   select(CAPACNUM, ZPMD_IMAE, DDIAB, DCISQ, DEVP, PMD_ANIO, DTRABA, DFUMA, PMD_CANTBICA, 
          PMD_ANIO, PMD_MES, tipo_inst, PAC_SEXO, CASEDADA, 
          ESAZOPR1, ESAZOPO1, ESAZOPR2, EMAZOEM, ESFOSF, EMHEMOG, ZPMD_ESTADO, 
          COMP, COMP1, COMP2, COMP3, ESKTV,
-         descom, coord, peso,
+         descom, coord, 
+         PMD_IMAE,
+         #peso,
+         #dist, depto,
          PAC_FEC_NAC, fecha_solicitud, fecha_autorizacion) %>% 
   rename(ZCAIMAE=ZPMD_IMAE) %>% 
   unite("mes_mensual", c(PMD_ANIO,PMD_MES), sep="-", remove=FALSE) %>% 
@@ -605,7 +624,7 @@ MENSUALES_HD2 <- MENSUALES_HD %>%
   ungroup() %>% 
   group_by(CAPACNUM) %>% 
   arrange(PMD_ANIO, PMD_MES) %>% 
-  mutate(meses=row_number()) 
+  mutate(meses=row_number())
 
 # Reorder "anio" in increasing order
 MENSUALES_HD2$anio <- factor(MENSUALES_HD2$PMD_ANIO, levels = sort(unique(MENSUALES_HD2$PMD_ANIO)))
@@ -825,7 +844,7 @@ print(xtable::xtable(mean_sd, caption = "Means and Standard Deviations of Variab
 
 quality %>%
   filter(depto=="01",
-         IMAE!="SENNIAD HEMO") %>% 
+         ZCAIMAE!="SENNIAD HEMO") %>% 
   pivot_longer(c(urea, surv, hemo, comp, sept, URR, ktv)) %>% 
   ggplot(aes(y=value, x=tipo_imae2, color=tipo_imae2)) +
   geom_boxplot() +
@@ -863,6 +882,7 @@ non_adj_quality %>%
   scale_color_viridis_d(end=0.8)
 #ggsave("unadjusted.png", dpi = 500, scale=3)
 
+library(stargazer)
 stargazer(m_urea, m_hemo, m_surv, m_comp, m_sept, m_ktv, m_URR,
           type="latex",
           keep = c("CASEDADA", "meses", "PMD_CANTBICA", "descom", "mujer",
@@ -1306,11 +1326,21 @@ imaes <- imaes %>%
   rename(ID_CAIMAE=num_choice)
 
 pacientes_mensuales <- MENSUALES_HD %>% 
-  unite("fecha2", PMD_ANIO:PMD_MES, sep="-") %>% 
+  unite("fecha2", PMD_ANIO:PMD_MES, sep="-", remove=F) %>% 
   mutate(fecha3=as.Date(paste(fecha2, "-01", sep=""))) %>% 
   filter(PMD_ORIG=="Del centro") %>% 
   rename(CAIMAE=PMD_IMAE) %>% 
-  group_by(CAIMAE, fecha3) %>% summarize(n_capacnum=n_distinct(CAPACNUM))
+  group_by(CAIMAE, fecha3) %>% 
+  summarize(n_capacnum=n_distinct(CAPACNUM)) %>% 
+  group_by(CAIMAE) %>% 
+  arrange(fecha3) %>%
+  mutate(moving_avg_n = rollmean(n_capacnum, k = 12, fill = "extend", align = "center")) %>% 
+  ungroup() %>% 
+  mutate(
+         dif=n_capacnum-moving_avg_n,
+         dif_prop=dif/moving_avg_n) %>% 
+  rename(pac_var=dif,
+         pac_var_prop=dif_prop)
 
 capacity <- INFORMES_IMAES_HD %>% 
   mutate(fecha3=as.Date(paste(fecha2, "-01", sep=""))) %>% 
@@ -1336,7 +1366,8 @@ pacmens_capacity <- pacientes_mensuales %>%
                               ZCAIMAE=="HOSPITAL DE CLINICAS" ~ "Clinicas",
                               ZCAIMAE=="HOSPITAL MACIEL" ~ "Maciel")) %>% 
   ungroup() %>% 
-  select(ID_CAIMAE, mes_solicitud, habilitados_def, slack_def, n_capacnum, tipo_imae3, tipo_imae2, fecha3, depto, ZCAIMAE)
+  select(ID_CAIMAE, mes_solicitud, habilitados_def, slack_def, n_capacnum, pac_var, pac_var_prop,
+         tipo_imae3, tipo_imae2, fecha3, depto, ZCAIMAE)
 
 pacmens_capacity %>% 
   filter(depto=="01",
@@ -1370,3 +1401,253 @@ ggplot(aes(x=fecha3, y=values, color=indicator)) + geom_line() + facet_wrap( ~ t
 
 ```
 
+
+# 11. How many patients change facility? - MONTHLY
+
+```{r}
+
+IMAE_ingreso <- INGRESOS_HD %>% rename(IMAE_ingreso=ZCAIMAE)
+
+
+# Todos ----
+cambios_todos <- MENSUALES_HD %>%
+  #filter(PMD_ORIG=="Del centro") %>% 
+  mutate(
+  ZPMD_IMAE=if_else(ZPMD_IMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZPMD_IMAE),
+  ZPMD_IMAE=if_else(ZPMD_IMAE=="IMPASA", "SMI - SERVICIO MEDICO INTEGRAL", ZPMD_IMAE),
+  ) %>% 
+  right_join(IMAE_ingreso, by="CAPACNUM") %>% 
+  left_join(IMAE_num, by=c("ZPMD_IMAE"="ZCAIMAE")) %>% 
+  group_by(CAPACNUM, ZPMD_IMAE) %>%
+  summarize(n_meses_imae=n(), IMAE_ingreso=first(IMAE_ingreso), depto=first(depto)) %>% 
+  group_by(CAPACNUM) %>% 
+  mutate(
+    n_imaes=n(),
+    rank = row_number(-n_meses_imae),
+    prop=n_meses_imae/sum(n_meses_imae)*100,
+    cambio=if_else(rank==1,
+      if_else(max(prop)!=100, 1, 0),
+      NA),
+    max_prop1=if_else(rank==1, prop, NA),
+    max_prop2=if_else(rank==2, prop, NA),
+    max_prop3=if_else(rank==3, prop, NA),
+    prop_ingreso=if_else(ZPMD_IMAE==IMAE_ingreso, prop, NA),
+    prop_ingreso=sum(prop_ingreso, na.rm=T),
+    ingreso_max1=if_else(max_prop1==prop_ingreso, 1, 0),
+    ingreso_max2=if_else(max_prop2==prop_ingreso, 1, 0),
+    ingreso_max3=if_else(max_prop3==prop_ingreso, 1, 0)
+    ) 
+  
+cambios_promedio_todos <- cambios_todos %>%
+  filter(depto=="01",
+         ZPMD_IMAE!="SENNIAD HEMO") %>% 
+  mutate(
+    n_imaes=n(),
+    rank = row_number(-n_meses_imae),
+    prop=n_meses_imae/sum(n_meses_imae)*100,
+    cambio=if_else(rank==1,
+      if_else(max(prop)!=100, 1, 0),
+      NA),
+    max_prop1=if_else(rank==1, prop, NA),
+    max_prop2=if_else(rank==2, prop, NA),
+    max_prop3=if_else(rank==3, prop, NA),
+    prop_ingreso=if_else(ZPMD_IMAE==IMAE_ingreso, prop, NA),
+    prop_ingreso=sum(prop_ingreso, na.rm=T),
+    ingreso_max1=if_else(max_prop1==prop_ingreso, 1, 0),
+    ingreso_max2=if_else(max_prop2==prop_ingreso, 1, 0),
+    ingreso_max3=if_else(max_prop3==prop_ingreso, 1, 0)
+    ) %>% 
+  ungroup() %>% 
+  summarise(
+    "# facilities"=mean(n_imaes, na.rm = T),
+    "% patients changing facility"=mean(cambio, na.rm = T)*100,
+    "% patients spending most months at first facility"=mean(ingreso_max1, na.rm = T)*100,
+    "% months at first facility"=mean(prop_ingreso, na.rm = T),
+    "% months at most attended facility"=mean(max_prop1, na.rm = T),
+    "% months at 2nd most attended facility"=mean(max_prop2, na.rm = T),
+    "% months at 3rd most attended facility"=mean(max_prop3, na.rm = T),
+    ) %>% 
+  pivot_longer(cols = everything(), names_to = "Indicator", values_to="Mean")
+
+cambios_sd_todos <- cambios_todos %>%
+  filter(depto=="01",
+         ZPMD_IMAE!="SENNIAD HEMO") %>% 
+  mutate(
+    n_imaes=n(),
+    rank = row_number(-n_meses_imae),
+    prop=n_meses_imae/sum(n_meses_imae)*100,
+    cambio=if_else(rank==1,
+      if_else(max(prop)!=100, 1, 0),
+      NA),
+    max_prop1=if_else(rank==1, prop, NA),
+    max_prop2=if_else(rank==2, prop, NA),
+    max_prop3=if_else(rank==3, prop, NA),
+    prop_ingreso=if_else(ZPMD_IMAE==IMAE_ingreso, prop, NA),
+    prop_ingreso=sum(prop_ingreso, na.rm=T),
+    ingreso_max1=if_else(max_prop1==prop_ingreso, 1, 0),
+    ingreso_max2=if_else(max_prop2==prop_ingreso, 1, 0),
+    ingreso_max3=if_else(max_prop3==prop_ingreso, 1, 0)
+    ) %>%
+  filter(depto=="01",
+         ZPMD_IMAE!="SENNIAD HEMO") %>% 
+  ungroup() %>% 
+  summarise(
+    "# facilities"=sd(n_imaes, na.rm = T),
+    "% patients changing facility"=NA,
+    "% patients spending most months at first facility"=NA,
+    "% months at first facility"=sd(prop_ingreso, na.rm = T),
+    "% months at most attended facility"=sd(max_prop1, na.rm = T),
+    "% months at 2nd most attended facility"=sd(max_prop2, na.rm = T),
+    "% months at 3rd most attended facility"=sd(max_prop3, na.rm = T),
+    ) %>% 
+  pivot_longer(cols = everything(), names_to = "Indicator", values_to="SD")
+
+tabla_cambios_todos <- full_join(cambios_promedio_todos, cambios_sd_todos, by="Indicator")
+
+
+# Del centro ----
+cambios_delcentro <- MENSUALES_HD %>%
+  filter(PMD_ORIG=="Del centro") %>% 
+  mutate(
+  ZPMD_IMAE=if_else(ZPMD_IMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZPMD_IMAE),
+  ZPMD_IMAE=if_else(ZPMD_IMAE=="IMPASA", "SMI - SERVICIO MEDICO INTEGRAL", ZPMD_IMAE),
+  ) %>% 
+  right_join(IMAE_ingreso, by="CAPACNUM") %>% 
+  left_join(IMAE_num, by=c("ZPMD_IMAE"="ZCAIMAE")) %>% 
+  group_by(CAPACNUM, ZPMD_IMAE) %>%
+  summarize(n_meses_imae=n(), IMAE_ingreso=first(IMAE_ingreso), depto=first(depto)) %>% 
+  group_by(CAPACNUM) %>% 
+  mutate(
+    n_imaes=n(),
+    rank = row_number(-n_meses_imae),
+    prop=n_meses_imae/sum(n_meses_imae)*100,
+    cambio=if_else(rank==1,
+      if_else(max(prop)!=100, 1, 0),
+      NA),
+    max_prop1=if_else(rank==1, prop, NA),
+    max_prop2=if_else(rank==2, prop, NA),
+    max_prop3=if_else(rank==3, prop, NA),
+    prop_ingreso=if_else(ZPMD_IMAE==IMAE_ingreso, prop, NA),
+    prop_ingreso=sum(prop_ingreso, na.rm=T),
+    ingreso_max1=if_else(max_prop1==prop_ingreso, 1, 0),
+    ingreso_max2=if_else(max_prop2==prop_ingreso, 1, 0),
+    ingreso_max3=if_else(max_prop3==prop_ingreso, 1, 0)
+    ) 
+  
+cambios_promedio_delcentro <- cambios_delcentro %>%
+  filter(depto=="01",
+         ZPMD_IMAE!="SENNIAD HEMO") %>% 
+  mutate(
+    n_imaes=n(),
+    rank = row_number(-n_meses_imae),
+    prop=n_meses_imae/sum(n_meses_imae)*100,
+    cambio=if_else(rank==1,
+      if_else(max(prop)!=100, 1, 0),
+      NA),
+    max_prop1=if_else(rank==1, prop, NA),
+    max_prop2=if_else(rank==2, prop, NA),
+    max_prop3=if_else(rank==3, prop, NA),
+    prop_ingreso=if_else(ZPMD_IMAE==IMAE_ingreso, prop, NA),
+    prop_ingreso=sum(prop_ingreso, na.rm=T),
+    ingreso_max1=if_else(max_prop1==prop_ingreso, 1, 0),
+    ingreso_max2=if_else(max_prop2==prop_ingreso, 1, 0),
+    ingreso_max3=if_else(max_prop3==prop_ingreso, 1, 0)
+    ) %>% 
+  ungroup() %>% 
+  summarise(
+    "# facilities"=mean(n_imaes, na.rm = T),
+    "% patients changing facility"=mean(cambio, na.rm = T)*100,
+    "% patients spending most months at first facility"=mean(ingreso_max1, na.rm = T)*100,
+    "% months at first facility"=mean(prop_ingreso, na.rm = T),
+    "% months at most attended facility"=mean(max_prop1, na.rm = T),
+    "% months at 2nd most attended facility"=mean(max_prop2, na.rm = T),
+    "% months at 3rd most attended facility"=mean(max_prop3, na.rm = T),
+    ) %>% 
+  pivot_longer(cols = everything(), names_to = "Indicator", values_to="Mean")
+
+cambios_sd_delcentro <- cambios_delcentro %>%
+  filter(depto=="01",
+         ZPMD_IMAE!="SENNIAD HEMO") %>% 
+  mutate(
+    n_imaes=n(),
+    rank = row_number(-n_meses_imae),
+    prop=n_meses_imae/sum(n_meses_imae)*100,
+    cambio=if_else(rank==1,
+      if_else(max(prop)!=100, 1, 0),
+      NA),
+    max_prop1=if_else(rank==1, prop, NA),
+    max_prop2=if_else(rank==2, prop, NA),
+    max_prop3=if_else(rank==3, prop, NA),
+    prop_ingreso=if_else(ZPMD_IMAE==IMAE_ingreso, prop, NA),
+    prop_ingreso=sum(prop_ingreso, na.rm=T),
+    ingreso_max1=if_else(max_prop1==prop_ingreso, 1, 0),
+    ingreso_max2=if_else(max_prop2==prop_ingreso, 1, 0),
+    ingreso_max3=if_else(max_prop3==prop_ingreso, 1, 0)
+    ) %>%
+  filter(depto=="01",
+         ZPMD_IMAE!="SENNIAD HEMO") %>% 
+  ungroup() %>% 
+  summarise(
+    "# facilities"=sd(n_imaes, na.rm = T),
+    "% patients changing facility"=NA,
+    "% patients spending most months at first facility"=NA,
+    "% months at first facility"=sd(prop_ingreso, na.rm = T),
+    "% months at most attended facility"=sd(max_prop1, na.rm = T),
+    "% months at 2nd most attended facility"=sd(max_prop2, na.rm = T),
+    "% months at 3rd most attended facility"=sd(max_prop3, na.rm = T),
+    ) %>% 
+  pivot_longer(cols = everything(), names_to = "Indicator", values_to="SD")
+
+tabla_cambios_delcentro <- full_join(cambios_promedio_delcentro, cambios_sd_delcentro, by="Indicator") %>% select(-Indicator)
+
+# Todos y del centro
+
+tabla_cambios <- cbind(tabla_cambios_todos, tabla_cambios_delcentro)
+
+  
+
+
+# % que cambia 
+summary(cambios$cambio)
+
+# Numero de imaes
+summary(cambios$n_imaes)
+
+# Proporcon at 1 max imae
+summary(cambios$max_prop1)
+
+# Proporcon at 2 max imae
+summary(cambios$max_prop2)
+
+# Proporcon at 3 max imae
+summary(cambios$max_prop3)
+
+# Proporcon at 1 max imae
+summary(cambios$ingreso_max1)
+
+# Proporcon at 2 max imae
+summary(cambios$ingreso_max2)
+
+# Proporcon at 3 max imae
+summary(cambios$ingreso_max3)
+
+summary(cambios$n_imaes)
+
+cambios_ingreso <- cambios %>% 
+  filter(imae_max==1) %>% 
+  mutate(ingreso_max=if_else(ZPMD_IMAE==IMAE_ingreso, 1, 0))
+
+summary(cambios_ingreso$ingreso_max)
+
+cambios_max2 <- cambios %>%
+  filter(imae_max==0) %>% 
+  group_by(CAPACNUM) %>% 
+  mutate(n_imaes2=n(),
+         prop2=n_meses_imae/sum(n_meses_imae),
+    max2_prop=max(prop2),
+         imae_max2=if_else(prop==max2_prop, 1, 0),
+         cambio2=if_else(max2_prop!=1, 1, 0)) 
+
+print(xtable::xtable(tabla_cambios, file="tabla_cambios"), include.rownames = FALSE)
+
+```
