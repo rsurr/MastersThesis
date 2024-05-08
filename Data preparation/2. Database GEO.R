@@ -87,6 +87,9 @@ write.csv(GEO,
 write.csv(IMAE_num, 
           "IMAE_num.csv", row.names=F)
 
+DATA_INGRESOS <- Logit_INGRESOS %>% left_join(GEO, by="CAPACNUM") %>% left_join(sim, by="CAPACNUM") %>% filter(choice==1)
+
+
 
 # MAPA ------------------
 montevideo <- st_read("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/mapas vectoriales 2011/ine_ccz_mvd.shp")
