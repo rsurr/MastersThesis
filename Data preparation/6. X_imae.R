@@ -338,14 +338,14 @@ turnos <- INFORMES_IMAES_HD %>%
 # Occupancy ----
 
 #SESIONES_HD <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/SESIONES #HD.sav") 
-#
-#SESIONES_HD <- SESIONES_HD %>% 
-#  unite("fecha", PMD_ANIO:PMD_MES, sep="-", remove=FALSE) %>% 
-#  mutate(Date = as.Date(paste(fecha, "-01", sep="")))
-#
-#SESIONES_HD <- SESIONES_HD %>% 
-#  mutate(
-#    ZPMD_IMAE=if_else(ZPMD_IMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZPMD_IMAE))
+
+SESIONES_HD <- SESIONES_HD %>% 
+  unite("fecha", PMD_ANIO:PMD_MES, sep="-", remove=FALSE) %>% 
+  mutate(Date = as.Date(paste(fecha, "-01", sep="")))
+
+SESIONES_HD <- SESIONES_HD %>% 
+  mutate(
+    ZPMD_IMAE=if_else(ZPMD_IMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZPMD_IMAE))
 
 occupancy <- SESIONES_HD %>% select(ZPMD_IMAE, PMD_ANIO, PMD_MES, CAPACNUM, Date) %>%
   group_by(ZPMD_IMAE, Date) %>% 
@@ -500,12 +500,27 @@ delays <- INGRESOS_HD %>%
 
 MENSUALES_HD <- read_sav("~/Proyecto Tesis/Databases/MENSUALES HD.sav")
 
-imaes <- imaes %>% 
+imaes <- INGRESOS_HD %>%
+  left_join(IMAE_num, join_by("ZCAIMAE")) %>% 
+  filter(depto=="01",
+         ZCAIMAE!="SENNIAD HEMO") %>% 
+  group_by(CAIMAE) %>% 
+  summarise(CAIMAE=first(CAIMAE),
+            ZCAIMAE=first(ZCAIMAE),
+            chain=first(chain),
+            transp=first(transp),
+            tipo_imae=first(tipo_imae),
+            num_choice=first(num_choice),
+            id=first(id),
+            depto=first(depto)) %>% 
   rename(ID_CAIMAE=num_choice)
 
 pacientes_mensuales <- MENSUALES_HD %>% 
   unite("fecha2", PMD_ANIO:PMD_MES, sep="-", remove=F) %>% 
-  mutate(fecha3=as.Date(paste(fecha2, "-01", sep=""))) %>% 
+  mutate(fecha3=as.Date(paste(fecha2, "-01", sep=""))) %>%
+  mutate(
+    ZPMD_IMAE=if_else(ZPMD_IMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZPMD_IMAE),
+    PMD_IMAE=if_else(PMD_IMAE==63, 95, PMD_IMAE)) %>% 
   filter(PMD_ORIG=="Del centro") %>% 
   rename(CAIMAE=PMD_IMAE) %>% 
   group_by(CAIMAE, fecha3) %>% 
@@ -528,14 +543,16 @@ pacientes_mensuales <- MENSUALES_HD %>%
          imae_pac_var_prop=imae_dif_prop)
 
 capacity <- INFORMES_IMAES_HD %>% 
+  mutate(
+    CAIMAE=if_else(CAIMAE==63, 95, CAIMAE)) %>% 
   mutate(fecha3=as.Date(paste(fecha2, "-01", sep=""))) %>% 
   select(CAIMAE, CAHMSPBN, CAHMSPBP, fecha3, DNLUT, DNMAT)
 
 pacmens_capacity <- pacientes_mensuales %>% 
   left_join(capacity, by=c("fecha3", "CAIMAE")) %>% 
   left_join(imaes, by=c("CAIMAE")) %>% 
-  filter(depto=="01",
-         ZCAIMAE!="SENNIAD HEMO") %>% 
+  #filter(depto=="01",
+  #       ZCAIMAE!="SENNIAD HEMO") %>% 
   mutate(habilitados=CAHMSPBN*(DNLUT+DNMAT),
          slack_hab=habilitados-n_capacnum,
          slack_CAH=CAHMSPBN-n_capacnum,
@@ -554,7 +571,7 @@ pacmens_capacity <- pacientes_mensuales %>%
   select(ID_CAIMAE, mes_solicitud, habilitados_def, slack_def, 
          n_capacnum, pac_var, pac_var_prop,
          imae_pac_var, imae_pac_var_prop,
-         tipo_imae3, tipo_imae2, fecha3, depto)
+         tipo_imae3, tipo_imae2, fecha3)
 
 # Quality ----
 
@@ -989,6 +1006,21 @@ mean_non_adj_qual <- non_adj_quality %>%
 
 
 mean_qual %>% 
+  mutate(IMAE=case_when(
+    IMAE=="ASOCIACION ESPAÑOLA" ~ "ESPAÑO",
+    IMAE=="CANMU" ~ "MEDICA",
+    IMAE=="CASMU" ~ "CASMU",
+    IMAE=="CE.DI.SA." ~ "CEDISA",
+    IMAE=="HOSPITAL BRITANICO" ~ "BRITÁNI",
+    IMAE=="HOSPITAL DE CLINICAS" ~ "CLÍNICAS",
+    IMAE=="HOSPITAL EVANGELICO" ~ "EVANGÉL",
+    IMAE=="HOSPITAL MACIEL" ~ "MACIEL",
+    IMAE=="SMI - SERVICIO MEDICO INTEGRAL" ~ "SMI",
+    IMAE=="CASA DE GALICIA" ~ "GALICIA",
+    IMAE=="URUGUAYANA" ~ "URUGUAY",
+    IMAE=="UNIVERSAL" ~ "UNIVERS",
+    .default = as.character(IMAE)
+  )) %>% 
   ggplot(aes(y = URR, x = reorder(IMAE, -URR), fill = tipo_imae2)) +
   geom_bar(stat = "identity") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
@@ -1008,6 +1040,21 @@ ggsave("mean_adjusted_URR.png", dpi = 500, scale=3)
 
 
 mean_non_adj_qual %>% 
+  mutate(IMAE=case_when(
+    IMAE=="ASOCIACION ESPAÑOLA" ~ "ESPAÑO",
+    IMAE=="CANMU" ~ "MEDICA",
+    IMAE=="CASMU" ~ "CASMU",
+    IMAE=="CE.DI.SA." ~ "CEDISA",
+    IMAE=="HOSPITAL BRITANICO" ~ "BRITÁNI",
+    IMAE=="HOSPITAL DE CLINICAS" ~ "CLÍNICAS",
+    IMAE=="HOSPITAL EVANGELICO" ~ "EVANGÉL",
+    IMAE=="HOSPITAL MACIEL" ~ "MACIEL",
+    IMAE=="SMI - SERVICIO MEDICO INTEGRAL" ~ "SMI",
+    IMAE=="CASA DE GALICIA" ~ "GALICIA",
+    IMAE=="URUGUAYANA" ~ "URUGUAY",
+    IMAE=="UNIVERSAL" ~ "UNIVERS",
+    .default = as.character(IMAE)
+  ))  %>% 
   ggplot(aes(y = URR, x = reorder(IMAE, -URR), fill = tipo_imae2)) +
   geom_bar(stat = "identity") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
@@ -1028,20 +1075,6 @@ ggsave("mean_unadjusted_URR.png", dpi = 500, scale=3)
 
 # X_imae ----
 
-imaes <- INGRESOS_HD %>%
-  left_join(IMAE_num, join_by("ZCAIMAE")) %>% 
-  filter(depto=="01",
-         ZCAIMAE!="SENNIAD HEMO") %>% 
-  group_by(CAIMAE) %>% 
-  summarise(CAIMAE=first(CAIMAE),
-            ZCAIMAE=first(ZCAIMAE),
-            chain=first(chain),
-            transp=first(transp),
-            tipo_imae=first(tipo_imae),
-            num_choice=first(num_choice),
-            id=first(id),
-            depto=first(depto))
-
 CAIMAE <- unique(imaes$CAIMAE)
 mes_solicitud <- seq(as.Date("2003-01-01"), as.Date("2016-12-01"), by = "month")
 
@@ -1060,8 +1093,8 @@ X_imae <-
   separate(mes_solicitud, into=c("anio_solicitud", "mes"), remove=F) %>% select(-mes) %>% 
   mutate(CAIMAE=as.factor(CAIMAE), anio_solicitud=as.double(anio_solicitud)) %>% 
   left_join(delays, by=c("ZCAIMAE", "anio_solicitud")) %>% 
-  left_join(quality, by=c("ZCAIMAE", "anio_solicitud"="anio", "depto")) %>% 
-  select(-c(depto, tipo_imae2))
+  left_join(quality, by=c("ZCAIMAE", "anio_solicitud"="anio", "depto", "id")) %>% 
+  select(-c(ID_CAIMAE, tipo_imae2))
   
 
 # Logit_INGRESOS ----
