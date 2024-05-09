@@ -1672,18 +1672,113 @@ print(xtable::xtable(tabla_cambios, file="tabla_cambios"), include.rownames = FA
   arrange(desc(Frequency)) %>%
   add_row(ZCAIMAE = "Total", Frequency = sum(.$Frequency), Percentage = 100) %>% 
   select(ZCAIMAE, Type, Frequency, Percentage)
+
+ table_shares_tipo <- Logit_INGRESOS %>% 
+  filter(choice==1) %>% 
+  #left_join(IMAE_num, by="ZCAIMAE") %>%
+  mutate(tipo_imae2=case_when(tipo_imae=="INDEPENDIENTE" ~ "Indep",
+                                tipo_imae=="PRIVADO" ~ "Priv Ins",
+                                tipo_imae=="PUBLICO" ~ "Pub Ins")) %>%
+  filter(depto=="01",
+         ZCAIMAE!="SENNIAD HEMO") %>% 
+  group_by(tipo_imae2) %>%
+  summarise(Frequency = n(), Type=first(tipo_imae2)) %>%
+  mutate(Percentage = round(Frequency / sum(Frequency) * 100, 2)) %>%
+  arrange(desc(Frequency)) %>%
+  add_row(Type = "Total", Frequency = sum(.$Frequency), Percentage = 100) %>% 
+  select(Type, Frequency, Percentage)
  
- print(xtable::xtable(table_shares, file="table_shares"), include.rownames = FALSE)
+ print(xtable::xtable(table_shares_tipo, file="table_shares_tipo"), include.rownames = FALSE)
 
 
 ```
 
-
-# Distancia
+# A donde se cambian?
 
 ```{r}
-unique(MENSUALES_HD$PMD_ANIO) %>% sort()
-unique(INGRESOS_HD$anio_solicitud) %>% sort()
+
+# A donde se cambian los pacientes que ingresan en el período
+cambios_donde <- MENSUALES_HD  %>% 
+  
+  # UNIVERSAL
+  mutate(
+    ZPMD_IMAE=if_else(ZPMD_IMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZPMD_IMAE),
+    ZPMD_IMAE=if_else(ZPMD_IMAE=="IMPASA", "SMI - SERVICIO MEDICO INTEGRAL", ZPMD_IMAE),
+    ) %>% 
+   
+  # IMAE DE INGRESO: Me quedo solo con los pacientes que ingresan en el período
+  right_join(IMAE_ingreso, by="CAPACNUM") %>% 
+  
+  # CAIMAE
+  left_join(IMAE_num, by=c("ZPMD_IMAE"="ZCAIMAE")) %>% 
+  
+  # FECHA DEL MES
+  unite("fecha2", PMD_ANIO:PMD_MES, sep="-") %>% 
+  mutate(fecha3=as.Date(paste(fecha2, "-01", sep=""))) %>% 
+  
+  # ORIGEN: CENTRO, MDEO y sin SENNIAD HEMO
+  filter(PMD_ORIG=="Del centro",
+         depto=="01",
+         ZPMD_IMAE!="SENNIAD HEMO") %>%
+
+  # Colapsar por paciente-IMAE
+  arrange(fecha3) %>% 
+  group_by(CAPACNUM, ZPMD_IMAE) %>%
+  summarize(n_meses_imae=n(), IMAE_ingreso=first(IMAE_ingreso), 
+            depto=first(depto),
+            fecha3=last(fecha3)) %>%
+  
+  # Número de centros por paciente
+  group_by(CAPACNUM) %>% 
+  mutate(n_imaes=n_distinct(ZPMD_IMAE),
+         orden=row_number(fecha3),
+         tipo_imae=
+  case_when(ZPMD_IMAE %in% c(IMAE_CENEU, IMAE_NEPHROS, IMAE_DIAVERUM, IMAE_SARI) ~ "Independent",
+            ZPMD_IMAE %in% IMAE_PUBLICO ~ "Public",
+            ZPMD_IMAE %in% IMAE_PRIVADO ~ "Private",
+            TRUE ~ NA)) %>% 
+  filter(n_imaes>1) %>% 
+  pivot_wider(id_cols="CAPACNUM", names_from = "orden", names_prefix = "imae", values_from = "tipo_imae") %>% 
+  group_by(imae1) %>% 
+  summarise(total=n(), 
+            imae2indep=sum(if_else(imae2=="Independent", 1, 0)),
+            imae2priv=sum(if_else(imae2=="Private", 1, 0)),
+            imae2pub=sum(if_else(imae2=="Public", 1, 0))) %>% 
+  mutate(Independent=paste0(round(imae2indep/total*100, 2), "%"),
+         Private=paste0(round(imae2priv/total*100, 2), "%"),
+         Public=paste0(round(imae2pub/total*100, 2), "%")) %>% 
+  select(-starts_with("imae2"))
+
+# Del centro ----
+cambios_donde <- MENSUALES_HD  %>% 
+  
+  # UNIVERSAL
+  mutate(
+    ZPMD_IMAE=if_else(ZPMD_IMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZPMD_IMAE),
+    ZPMD_IMAE=if_else(ZPMD_IMAE=="IMPASA", "SMI - SERVICIO MEDICO INTEGRAL", ZPMD_IMAE),
+    ) %>% 
+  
+  # ORIGEN: CENTRO, MDEO y sin SENNIAD HEMO
+  filter(PMD_ORIG=="Del centro",
+         depto=="01",
+         ZPMD_IMAE!="SENNIAD HEMO") %>%
+  
+  # Tipo de IMAE
+  mutate(
+         tipo_imae=
+  case_when(ZPMD_IMAE %in% c(IMAE_CENEU, IMAE_NEPHROS, IMAE_DIAVERUM, IMAE_SARI) ~ "Independent",
+            ZPMD_IMAE %in% IMAE_PUBLICO ~ "Public",
+            ZPMD_IMAE %in% IMAE_PRIVADO ~ "Private",
+            TRUE ~ NA)) %>% 
+  group_by(tipo_imae) %>% 
+  summarise(Me=n()) %>% 
+  mutate(Independent=paste0(round(imae2indep/total*100, 2), "%"),
+         Private=paste0(round(imae2priv/total*100, 2), "%"),
+         Public=paste0(round(imae2pub/total*100, 2), "%")) %>% 
+  select(-starts_with("imae2"))
+
+ print(xtable::xtable(cambios_donde, file="cambios_donde"), include.rownames = FALSE)
+
 
 ```
 
