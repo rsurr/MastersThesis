@@ -834,7 +834,7 @@ get_all_predictions <- function(model, data) {
 
 INGRESOS_HD2 <- read_csv("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/INGRESOS_HD2.csv")
 
-tipo_imae <- INGRESOS_HD2 %>% ungroup() %>% select("ZCAIMAE", "tipo_choice") %>% unique()
+tipo_imae <- INGRESOS_HD %>% ungroup() %>% select("ZCAIMAE", "tipo_imae") %>% unique()
 IMAE_num <- read_csv("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/IMAE_num.csv") %>% filter(ZCAIMAE!="HOSPITAL ITALIANO")
 
 pred_urea <- get_all_predictions(m_urea, MENSUALES_HD2) %>% rename(urea=Prediction)
@@ -871,6 +871,9 @@ write.csv(
   "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/quality.csv", 
   row.names=FALSE)
 
+quality <- read_csv("quality.csv") %>% 
+  mutate()
+
 non_adj_quality <- MENSUALES_HD2 %>% 
   group_by(ZCAIMAE, anio) %>% 
   summarise(urea=mean(urea17, na.rm = T),
@@ -884,9 +887,9 @@ non_adj_quality <- MENSUALES_HD2 %>%
             sept=mean(sept, na.rm = T)) %>%
   rename(IMAE=ZCAIMAE) %>% 
   left_join(tipo_imae, by=c("IMAE"="ZCAIMAE")) %>%
-  mutate(tipo_imae2=case_when(tipo_choice=="INDEPENDIENTE" ~ "Indep",
-                              tipo_choice=="PRIVADO" ~ "Priv Ins",
-                              tipo_choice=="PUBLICO" ~ "Pub Ins")) %>% 
+  mutate(tipo_imae2=case_when(tipo_imae=="INDEPENDIENTE" ~ "Indep",
+                              tipo_imae=="PRIVADO" ~ "Priv Ins",
+                              tipo_imae=="PUBLICO" ~ "Pub Ins")) %>% 
   left_join(IMAE_num, by=c("IMAE"="ZCAIMAE"))
 
 
@@ -1071,6 +1074,36 @@ mean_non_adj_qual %>%
   scale_x_discrete(labels = function(x) substr(x, nchar(x)-7, nchar(x))) +
   coord_cartesian(ylim = c(0, 1))
 ggsave("mean_unadjusted_URR.png", dpi = 500, scale=3)
+
+quality %>% 
+  mutate(anio=as.factor(anio)) %>%
+  select(anio, ZCAIMAE, URR, depto) %>% 
+  rename(IMAE=ZCAIMAE,
+         Adjusted=URR) %>% 
+  left_join(non_adj_quality, by=c("anio", "IMAE", "depto")) %>% 
+  mutate(IMAE=if_else(IMAE=="CEDINA", "CE.DI.SA", IMAE),
+         depto=if_else(IMAE=="CE.DI.SA", "01", depto),
+         tipo_imae2=if_else(IMAE=="CE.DI.SA", "Indep", tipo_imae2)) %>% 
+  filter(depto=="01",
+         IMAE!="SENNIAD HEMO",
+         !is.na(tipo_imae2)) %>% 
+  rename(Unadjusted=URR) %>% 
+  select(anio, IMAE, Adjusted, Unadjusted, tipo_imae2) %>% 
+  pivot_longer(cols = c("Unadjusted", "Adjusted"), names_to = "Type", values_to = "Value") %>%
+  ggplot(aes(y=Value, x=tipo_imae2, color=tipo_imae2)) +
+  geom_boxplot() +
+  facet_wrap(~Type, scale="free_y", labeller = labeller(name=labs)) +
+  coord_cartesian(ylim = c(0, 1)) +  # Restrict y-axis from 0 to 1
+  theme(
+    legend.position = "none",
+    axis.title.x = element_blank(),  # Remove x-axis label
+    axis.title.y = element_blank(),  # Remove x-axis label
+    panel.background = element_rect(fill = "white"),  # Change background to white
+    panel.grid.major = element_line(color = "gray"),  # Change major gridlines to gray
+    panel.grid.minor = element_blank(),  # Remove minor gridlines
+    strip.background = element_blank()  # Remove background from facet titles
+  ) +
+  scale_color_viridis_d(end=0.8)
 
 
 # X_imae ----
