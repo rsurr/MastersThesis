@@ -1782,3 +1782,75 @@ cambios_donde <- MENSUALES_HD  %>%
 
 ```
 
+# ECH
+
+```{r}
+library(haven)
+P_2016_Terceros <- read_sav("~/Proyecto Tesis/Databases/ECH/Base ECH 2016 formato SAV/P_2016_Terceros.sav")
+View(P_2016_Terceros)
+
+P_2016_Terceros %>% select(starts_with("e45"))
+
+# Qué quiere decir "derecho a"?
+table(P_2016_Terceros$e45_1, P_2016_Terceros$e45_1_2)
+table(P_2016_Terceros$e45_2, P_2016_Terceros$e45_2_2)
+table(P_2016_Terceros$e45_3, P_2016_Terceros$e45_3_2)
+table(P_2016_Terceros$e45_4, P_2016_Terceros$e45_4_2)
+
+
+# Tabla ECH ----
+tabla_ECH <- P_2016_Terceros %>% 
+  select(numero, nper, pesoano, e26, e27, 
+         e45_1, e45_1_2, # ASSE
+         e45_2, e45_2_2, #MUTUALISTA
+         e45_3, e45_3_2, #SEGURO PRIVADO
+         e45_4) %>%  # CORPORATIVO
+
+  # TIENE DERECHO DE ASISTENCIA
+  mutate(
+    asse=case_when(
+    e45_1==1~1,
+    e45_1==2~0),
+    mutualista=case_when(
+      e45_2==1~1,
+      e45_2==2~0),
+    seguro=case_when(
+      e45_3==1~1,
+      e45_3==2~0),
+    corporativo=case_when(
+      e45_4==1~1,
+      e45_4==2~0),
+    tipo_inst=case_when(asse==1~"ASSE",
+                   mutualista==1~"IAMC/IAMPP",
+                   seguro==1~"SEGURO PRIVADO",
+                   corporativo==1~"CORPORATIVO"),
+    
+  # SEXO
+    female=case_when(
+      e26==2~1,
+      e26==1~0)) %>% 
+  
+  # COLAPSO
+  group_by(tipo_inst) %>% 
+  summarise(
+    female_ECH=paste0(round(weighted.mean(female, pesoano)*100, 2), "%"),
+    age_ECH=round(weighted.mean(e27, pesoano),2))
+
+         
+# Tabla INGRESOS_HD
+## Usando INGRESOS_HD importado desde X_imae
+
+tabla_ING <- INGRESOS_HD %>% 
+  mutate(female=case_when(CASEXO=="F"~1,
+                          CASEXO=="M"~0)) %>% 
+  group_by(tipo_inst) %>%
+    summarise(
+              female_ING=paste0(round(mean(female, na.rm = T)*100, 2), "%"),
+      age_ING=round(mean(CASEDADA, na.rm = T), 2),
+      )
+
+tabla_ING_ECH <- tabla_ING %>% left_join(tabla_ECH, by="tipo_inst")
+
+print(xtable::xtable(tabla_ING_ECH, file="tabla_ING_ECH"), include.rownames = FALSE)
+```
+
