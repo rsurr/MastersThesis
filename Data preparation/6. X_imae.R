@@ -250,6 +250,20 @@ INGRESOS_HD <-
       case_when(ZB1SOCUP0 %in% PAC_ACTIVO ~ "Activo",
                 ZB1SOCUP0 %in% PAC_INACTIVO ~ "Inactivo",
                 TRUE ~ NA),
+    
+    edu_ningu=if_else(B1SNIVEL=="Ninguno", 1, 0),
+    edu_prim=if_else(B1SNIVEL=="Primaria", 1, 0),
+    edu_sec=if_else(B1SNIVEL=="Secundaria", 1, 0),
+    edu_utu=if_else(B1SNIVEL=="UTU", 1, 0),
+    edu_uni=if_else(B1SNIVEL=="Universidad", 1, 0),
+    edu_prim_or_less=if_else(B1SNIVEL=="Ninguno" |
+                               B1SNIVEL=="Primaria", 1, 0),
+    edu_sec_or_more=if_else(B1SNIVEL=="Secundaria" |
+                               B1SNIVEL=="UTU" |
+                               B1SNIVEL=="Universidad", 1, 0),
+    
+    jubi=if_else(ZB1SOCUP0=="Jubilado", 1, 0),
+    
     fecha_solicitud=as.Date(CAFECSOL),
     fecha_autorizacion=as.Date(CAFECAUT),
     mes_solicitud=format(fecha_solicitud, "%Y-%m"),
@@ -337,7 +351,7 @@ turnos <- INFORMES_IMAES_HD %>%
 
 # Occupancy ----
 
-#SESIONES_HD <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/SESIONES #HD.sav") 
+SESIONES_HD <- read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/SESIONES HD.sav") 
 
 SESIONES_HD <- SESIONES_HD %>% 
   unite("fecha", PMD_ANIO:PMD_MES, sep="-", remove=FALSE) %>% 
@@ -391,68 +405,71 @@ MEDICOS <- MEDICOS %>%
   mutate(across(starts_with("medimae"), ~ifelse(. == 1, as.integer(sub("medimae", "", cur_column())), .)))
 
 # Delta peso ----
+library(fixest)
+dP <- SESIONES_HD %>%
+  rename(ZCAIMAE=ZPMD_IMAE) %>% 
+  mutate(DPESOSE=case_when(DPESOSE==999.00 ~ NA,
+                           .default = as.numeric(DPESOSE)),
+         DPESOPO=case_when(DPESOPO==999.00 ~ NA,
+                           .default = as.numeric(DPESOPO)),
+         dife_post=DPESOPO-DPESOSE,
+         dife_pre=DPESOPR-DPESOSE,
+         peso=case_when(abs(dife_post)<=0.5 ~ 1,
+                        abs(dife_post)>0.5 ~ 0,
+                        is.na(dife_post) ~ NA)) %>% 
+  select(peso, CAPACNUM, DPESOPR, DPESOPO, ZCAIMAE, PMD_ANIO, dife_post, 
+         dife_pre)
 
-#dP <- SESIONES_HD %>%
-#  rename(ZCAIMAE=ZPMD_IMAE) %>% 
-#  mutate(DPESOSE=case_when(DPESOSE==999.00 ~ NA,
-#                           .default = as.numeric(DPESOSE)),
-#         DPESOPO=case_when(DPESOPO==999.00 ~ NA,
-#                           .default = as.numeric(DPESOPO)),
-#         dife_post=DPESOPO-DPESOSE,
-#         dife_pre=DPESOPR-DPESOSE,
-#         peso=case_when(abs(dife_post)<=0.5 ~ 1,
-#                        abs(dife_post)>0.5 ~ 0,
-#                        is.na(dife_post) ~ NA)) %>% 
-#  select(peso, CAPACNUM, DPESOPR, DPESOPO, ZCAIMAE, PMD_ANIO, dife_post, 
-#         dife_pre)
-#
-## Reorder "anio" in increasing order
-#dP$anio <- factor(dP$PMD_ANIO, levels = sort(unique(dP$PMD_ANIO)))
-#
-## Reorder "ZCAIMAE" alphabetically
-#dP$ZCAIMAE <- factor(dP$ZCAIMAE, levels = sort(unique(dP$ZCAIMAE)))
-#
-## Set reference levels for anio, ZCAIMAE and CAPACNUM
-#base$anio <- relevel(base$anio, ref = "2004")
-#base$ZCAIMAE <- relevel(base$ZCAIMAE, ref = "ASOCIACION ESPAÑOLA")
-#base$CAPACNUM <- relevel(base$CAPACNUM, ref="344677")
-#
-#dP <- dP %>% unite("ZCAIMAEanio", ZCAIMAE:PMD_ANIO, sep=":", remove = FALSE) 
+# Reorder "anio" in increasing order
+dP$anio <- factor(dP$PMD_ANIO, levels = sort(unique(dP$PMD_ANIO)))
 
-#m_dP1 <- feols(peso ~ DPESOPR | ZCAIMAEanio + CAPACNUM, dP)
-#m_dP2 <- feols(peso ~ dife_pre | ZCAIMAEanio + CAPACNUM, dP)
-#m_dP3 <- feols(dife_post ~ DPESOPR | ZCAIMAEanio + CAPACNUM, dP)
-#m_dP4 <- feols(dife_post ~ dife_pre | ZCAIMAEanio + CAPACNUM, dP)
-#m_dP5 <- feols(DPESOPO ~ DPESOPR | ZCAIMAEanio + CAPACNUM, dP)
-#
-#delta_p1 <- fixef(m_dP1)$ZCAIMAEanio %>% as.data.frame() %>% 
-#  rownames_to_column("ZCAIMAEanio")
-#colnames(delta_p1) <- c("ZCAIMAEanio", "delta_p1")
-#
-#delta_p2 <- fixef(m_dP2)$ZCAIMAEanio %>% as.data.frame() %>% 
-#  rownames_to_column("ZCAIMAEanio")
-#colnames(delta_p2) <- c("ZCAIMAEanio", "delta_p2")
+# Reorder "ZCAIMAE" alphabetically
+dP$ZCAIMAE <- factor(dP$ZCAIMAE, levels = sort(unique(dP$ZCAIMAE)))
 
-#delta_p3 <- fixef(m_dP3)$ZCAIMAEanio %>% as.data.frame() %>% 
-#  rownames_to_column("ZCAIMAEanio")
-#colnames(delta_p3) <- c("ZCAIMAEanio", "delta_p3")
-#
-#delta_p4 <- fixef(m_dP4)$ZCAIMAEanio %>% as.data.frame() %>% 
-#  rownames_to_column("ZCAIMAEanio")
-#colnames(delta_p4) <- c("ZCAIMAEanio", "delta_p4")
-#
-#delta_p5 <- fixef(m_dP5)$ZCAIMAEanio %>% as.data.frame() %>% 
-#  rownames_to_column("ZCAIMAEanio")
-#colnames(delta_p5) <- c("ZCAIMAEanio", "delta_p5")
+# Set reference levels for anio, ZCAIMAE and CAPACNUM
+base$anio <- relevel(base$anio, ref = "2004")
+base$ZCAIMAE <- relevel(base$ZCAIMAE, ref = "ASOCIACION ESPAÑOLA")
+base$CAPACNUM <- relevel(base$CAPACNUM, ref="344677")
 
-#delta_p <- delta_p1 %>% 
-#  left_join(delta_p2, join_by("ZCAIMAEanio")) %>%
-#  left_join(delta_p3, join_by("ZCAIMAEanio")) %>%
-#  left_join(delta_p4, join_by("ZCAIMAEanio")) %>%
-#  left_join(delta_p5, join_by("ZCAIMAEanio")) %>%
-#  separate(ZCAIMAEanio, sep = ":", into = c("ZCAIMAE", "anio")) %>% 
-#  mutate(anio=as.double(anio))
+dP <- dP %>% unite("ZCAIMAEanio", ZCAIMAE:PMD_ANIO, sep=":", remove = FALSE) 
+m_dP1 <- feols(peso ~ DPESOPR | ZCAIMAEanio + CAPACNUM, dP)
+m_dP2 <- feols(peso ~ dife_pre | ZCAIMAEanio + CAPACNUM, dP)
+m_dP3 <- feols(dife_post ~ DPESOPR | ZCAIMAEanio + CAPACNUM, dP)
+m_dP4 <- feols(dife_post ~ dife_pre | ZCAIMAEanio + CAPACNUM, dP)
+m_dP5 <- feols(DPESOPO ~ DPESOPR | ZCAIMAEanio + CAPACNUM, dP)
 
+delta_p1 <- fixef(m_dP1)$ZCAIMAEanio %>% as.data.frame() %>% 
+  rownames_to_column("ZCAIMAEanio")
+colnames(delta_p1) <- c("ZCAIMAEanio", "delta_p1")
+
+delta_p2 <- fixef(m_dP2)$ZCAIMAEanio %>% as.data.frame() %>% 
+  rownames_to_column("ZCAIMAEanio")
+colnames(delta_p2) <- c("ZCAIMAEanio", "delta_p2")
+delta_p3 <- fixef(m_dP3)$ZCAIMAEanio %>% as.data.frame() %>% 
+  rownames_to_column("ZCAIMAEanio")
+colnames(delta_p3) <- c("ZCAIMAEanio", "delta_p3")
+
+delta_p4 <- fixef(m_dP4)$ZCAIMAEanio %>% as.data.frame() %>% 
+  rownames_to_column("ZCAIMAEanio")
+colnames(delta_p4) <- c("ZCAIMAEanio", "delta_p4")
+
+delta_p5 <- fixef(m_dP5)$ZCAIMAEanio %>% as.data.frame() %>% 
+  rownames_to_column("ZCAIMAEanio")
+colnames(delta_p5) <- c("ZCAIMAEanio", "delta_p5")
+delta_p <- delta_p1 %>% 
+  left_join(delta_p2, join_by("ZCAIMAEanio")) %>%
+  left_join(delta_p3, join_by("ZCAIMAEanio")) %>%
+  left_join(delta_p4, join_by("ZCAIMAEanio")) %>%
+  left_join(delta_p5, join_by("ZCAIMAEanio")) %>%
+  separate(ZCAIMAEanio, sep = ":", into = c("ZCAIMAE", "anio")) %>% 
+  mutate(anio_solicitud=as.double(anio))
+
+write_dta(delta_p, 
+          "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/delta_p.dta",
+          version = 14,
+          label = attr(data, "label"),
+          strl_threshold = 2045,
+          adjust_tz = TRUE)
 
 # Dist ----
 

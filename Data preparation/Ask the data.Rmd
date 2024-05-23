@@ -985,23 +985,25 @@ summary(HC$n)
 
 ```{r}
 library(readr)
-IMAE_num <- read_csv("IMAE_num.csv") 
 
-
+PACIENTES <- 
+  read_sav("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/Databases/PACIENTES.sav")
 
 my.max <- function(x) ifelse( !all(is.na(x)), max(x, na.rm=T), NA)
 my.min <- function(x) ifelse( !all(is.na(x)), min(x, na.rm=T), NA)
 
-MENSUALES_HD3 <- MENSUALES_HD %>% 
-  right_join(INGRESOS_HD, by="CAPACNUM") %>% 
+MENSUALES_HD3 <- INGRESOS_HD %>% 
+  right_join(MENSUALES_HD, by="CAPACNUM") %>% 
   left_join(PACIENTES, by="CAPACNUM") %>%
-  left_join(dife_peso, by=c("PMD_ANIO", "PMD_MES", "CAPACNUM")) %>% 
+  #left_join(dife_peso, by=c("PMD_ANIO", "PMD_MES", "CAPACNUM")) %>% 
   select(CAPACNUM, ZPMD_IMAE, DDIAB, DCISQ, DEVP, PMD_ANIO, DTRABA, DFUMA, PMD_CANTBICA, 
          PMD_ANIO, PMD_MES, tipo_inst, PAC_SEXO, CASEDADA, 
          ESAZOPR1, ESAZOPO1, ESAZOPR2, EMAZOEM, ESFOSF, EMHEMOG, ZPMD_ESTADO, 
          COMP, COMP1, COMP2, COMP3, ESKTV,
-         descom, coord, peso,
-         PAC_FEC_NAC, fecha_solicitud, fecha_autorizacion) %>% 
+         descom, coord, 
+         #peso,
+         PAC_FEC_NAC, fecha_solicitud, fecha_autorizacion,
+         starts_with("edu"), jubi) %>% 
   rename(ZCAIMAE=ZPMD_IMAE) %>% 
   unite("mes_mensual", c(PMD_ANIO,PMD_MES), sep="-", remove=FALSE) %>% 
   mutate(fecha_mensual = as.Date(paste(mes_mensual, "-01", sep=""))) %>% 
@@ -1098,6 +1100,7 @@ MENSUALES_HD3 <- MENSUALES_HD %>%
   arrange(PMD_ANIO, PMD_MES) %>% 
   mutate(meses=row_number()) 
 
+IMAE_num <- read_csv("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/IMAE_num.csv") 
 
 IMAE_num <- IMAE_num %>%
   mutate(
@@ -1132,80 +1135,19 @@ pacientes <- MENSUALES_HD3 %>%
     DTRABA = mean(DTRABA, na.rm = TRUE),
     DFUMA = mean(DFUMA, na.rm = TRUE),
     descom = mean(descom, na.rm = TRUE),
-    coord = mean(coord, na.rm = TRUE),
+    edu_ningu = mean(edu_ningu, na.rm = TRUE),
+    edu_prim_or_less = mean(edu_prim_or_less, na.rm = TRUE),
+    edu_sec_or_more = mean(edu_sec_or_more, na.rm = TRUE),
+    edu_utu = mean(edu_utu, na.rm = TRUE),
+    edu_uni = mean(edu_uni, na.rm = TRUE),
+    jubi = mean(jubi, na.rm = TRUE),
     tipo_imae=first(tipo_imae)
   ) 
 
 tabla_pacientes <- pacientes %>% 
   group_by(tipo_imae) %>% 
   summarize(
-  "# patients" = n(),
-   "Age at start" = mean(edad_min, na.rm = TRUE),
-   "Age at start | Dead" = mean(edad_min[dead==1], na.rm = TRUE),
-   "Age at death" = mean(edad_max[dead==1], na.rm = TRUE),
-   "Months on dialysis" = mean(meses, na.rm = TRUE),
-   "Months on dialysis | Dead" = mean(meses[dead==1], na.rm = TRUE),
-    "Monthly sessions" = mean(PMD_CANTBICA, na.rm = TRUE),
-    Female = mean(mujer, na.rm = TRUE)*100,
-    ASSE = mean(ASSE, na.rm = TRUE)*100,
-    IAMC_IAMPP = mean(IAMC_IAMPP, na.rm = TRUE)*100,
-    Corporate = mean(CORPORATIVO, na.rm = TRUE)*100,
-    Diabetic = mean(DDIAB, na.rm = TRUE)*100,
-    Cardiopathy= mean(DCISQ, na.rm = TRUE)*100,
-    Vascular = mean(DEVP, na.rm = TRUE)*100,
-    Working = mean(DTRABA, na.rm = TRUE)*100,
-    Smoking = mean(DFUMA, na.rm = TRUE)*100,
-    "Decompensated start" = mean(descom, na.rm = TRUE)*100,
-    "Coordinated start" = mean(coord, na.rm = TRUE)*100)  %>% 
-  pivot_longer(cols=c(everything(), -tipo_imae), names_to = "Indicator", values_to = "Value") %>% 
-  pivot_wider(values_from="Value", names_from = "tipo_imae") %>% 
-  mutate_if(is.numeric, round, digits=2) %>% 
-  rename(
-    "Public ins"=PUBLICO,
-    "Private ins"=PRIVADO,
-    "Independent"=INDEPENDIENTE)
-  
-tabla_pacientes <- pacientes %>% 
-  group_by(tipo_imae) %>% 
-  summarize(
-    "# patients" = paste0(round(n(), 2)),
-    "Age at start" = paste0(round(mean(edad_min, na.rm = TRUE), 2), " (",
-                            round(sd(edad_min, na.rm = TRUE), 2), ")"),
-    "Age at start | Dead" = paste0(round(mean(edad_min[dead==1], na.rm = TRUE), 2), " (",
-                                   round(sd(edad_min[dead==1], na.rm = TRUE), 2), ")"),
-    "Age at death" = paste0(round(mean(edad_max[dead==1], na.rm = TRUE), 2), " (",
-                            round(sd(edad_max[dead==1], na.rm = TRUE), 2), ")"),
-    "Months on dialysis" = paste0(round(mean(meses, na.rm = TRUE), 2), " (",
-                                  round(sd(meses, na.rm = TRUE), 2), ")"),
-    "Months on dialysis | Dead" = paste0(round(mean(meses[dead==1], na.rm = TRUE), 2), " (",
-                                         round(sd(meses[dead==1], na.rm = TRUE), 2), ")"),
-    "Monthly sessions" = paste0(round(mean(PMD_CANTBICA, na.rm = TRUE), 2), " (",
-                                round(sd(PMD_CANTBICA, na.rm = TRUE), 2), ")"),
-    Female = paste0(round(mean(mujer, na.rm = TRUE)*100, 2), "%"),
-    ASSE = paste0(round(mean(ASSE, na.rm = TRUE)*100, 2), "%"),
-    IAMC_IAMPP = paste0(round(mean(IAMC_IAMPP, na.rm = TRUE)*100, 2), "%"),
-    Corporate = paste0(round(mean(CORPORATIVO, na.rm = TRUE)*100, 2), "%"),
-    Diabetic = paste0(round(mean(DDIAB, na.rm = TRUE)*100, 2), "%"),
-    Cardiopathy = paste0(round(mean(DCISQ, na.rm = TRUE)*100, 2), "%"),
-    Vascular = paste0(round(mean(DEVP, na.rm = TRUE)*100, 2), "%"),
-    Working = paste0(round(mean(DTRABA, na.rm = TRUE)*100, 2), "%"),
-    Smoking = paste0(round(mean(DFUMA, na.rm = TRUE)*100, 2), "%"),
-    "Decompensated start" = paste0(round(mean(descom, na.rm = TRUE)*100, 2), "%"),
-    "Coordinated start" = paste0(round(mean(coord, na.rm = TRUE)*100, 2), "%")
-  ) %>% 
-  pivot_longer(cols=c(everything(), -tipo_imae), names_to = "Indicator", values_to = "Value") %>% 
-  pivot_wider(values_from="Value", names_from = "tipo_imae") %>% 
-  mutate_if(is.numeric, round, digits=2) %>% 
-  rename(
-    "Public ins" = PUBLICO,
-    "Private ins" = PRIVADO,
-    "Independent" = INDEPENDIENTE
-  )
-
-tabla_pacientes <- pacientes %>% 
-  group_by(tipo_imae) %>% 
-  summarize(
-    "# patients" = paste0(round(n(), 2)),
+    "# patients" = paste0(round(n_distinct(CAPACNUM), 2)),
     "Age at start" = paste0(round(mean(edad_min, na.rm = TRUE), 2)),
     "Age at start | Dead" = paste0(round(mean(edad_min[dead==1], na.rm = TRUE), 2)),
     "Age at death" = paste0(round(mean(edad_max[dead==1], na.rm = TRUE), 2)),
@@ -1215,6 +1157,9 @@ tabla_pacientes <- pacientes %>%
     Female = paste0(round(mean(mujer, na.rm = TRUE)*100, 2), "%"),
     ASSE = paste0(round(mean(ASSE, na.rm = TRUE)*100, 2), "%"),
     IAMC_IAMPP = paste0(round(mean(IAMC_IAMPP, na.rm = TRUE)*100, 2), "%"),
+    "Primary or less" = paste0(round(mean(edu_prim_or_less, na.rm = TRUE)*100, 2), "%"),
+    "Secondary or more" = paste0(round(mean(edu_sec_or_more, na.rm = TRUE)*100, 2), "%"),
+    Retired = paste0(round(mean(jubi, na.rm = TRUE)*100, 2), "%"),
     Diabetic = paste0(round(mean(DDIAB, na.rm = TRUE)*100, 2), "%"),
     Cardiopathy = paste0(round(mean(DCISQ, na.rm = TRUE)*100, 2), "%"),
     Smoking = paste0(round(mean(DFUMA, na.rm = TRUE)*100, 2), "%"),
@@ -1804,7 +1749,8 @@ tabla_ECH <- P_2016_Terceros %>%
          e45_1, e45_1_2, # ASSE
          e45_2, e45_2_2, #MUTUALISTA
          e45_3, e45_3_2, #SEGURO PRIVADO
-         e45_4) %>%  # CORPORATIVO
+         e45_4,  # CORPORATIVO
+  e197, e197_1, e201, e201_1, e212, e211_1) %>%
 
   # TIENE DERECHO DE ASISTENCIA
   mutate(
@@ -1828,13 +1774,20 @@ tabla_ECH <- P_2016_Terceros %>%
   # SEXO
     female=case_when(
       e26==2~1,
-      e26==1~0)) %>% 
+      e26==1~0),
+  
+  # EDUCACION
+  secondary=if_else(e201==2,
+                     e201_1==1, 1, 0)
+  ) %>% 
   
   # COLAPSO
   group_by(tipo_inst) %>% 
   summarise(
     female_ECH=paste0(round(weighted.mean(female, pesoano)*100, 2), "%"),
-    age_ECH=round(weighted.mean(e27, pesoano),2))
+    age_ECH=round(weighted.mean(e27, pesoano),2),
+    secondary_ECH=paste0(round(weighted.mean(secondary, pesoano)*100, 2), "%"),
+    )
 
          
 # Tabla INGRESOS_HD
@@ -1847,10 +1800,21 @@ tabla_ING <- INGRESOS_HD %>%
     summarise(
               female_ING=paste0(round(mean(female, na.rm = T)*100, 2), "%"),
       age_ING=round(mean(CASEDADA, na.rm = T), 2),
+      secondary_ING=paste0(round(mean(edu_sec_or_more)*100, 2), "%"),
+
       )
 
 tabla_ING_ECH <- tabla_ING %>% left_join(tabla_ECH, by="tipo_inst")
 
 print(xtable::xtable(tabla_ING_ECH, file="tabla_ING_ECH"), include.rownames = FALSE)
+```
+
+```{r}
+borrar <- INGRESOS_HD %>%
+  left_join(IMAE_num, join_by("ZCAIMAE")) %>% 
+  filter(depto=="01",
+         ZCAIMAE!="SENNIAD HEMO")
+
+n_distinct(borrar$CAPACNUM)
 ```
 
