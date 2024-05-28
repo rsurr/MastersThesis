@@ -5,6 +5,8 @@ library(fastDummies)
 library(data.table)
 library(zoo)
 
+setwd("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/Clean")
+
 IMAE_CENEU <- c("CE.DI.SA.", "CENEPA", "CANIMEL", "SEDIC", "INU", "URUGUAYANA")
 
 IMAE_NEPHROS <- c("NEPHROS", "UDIR", "SANEF")
@@ -173,8 +175,18 @@ INGRESOS_HD <-
     estu_iono_na=EIONONA,
     estu_iono_k=EIONOK,
     estu_iono_ca=EIONOCA,
-    estu_iono_fecha=EIONOF
-  ) %>% 
+    estu_iono_fecha=EIONOF,
+    
+    estu_hemo_hematocrito=EHEMOHTO,
+    estu_hemo_hemoglob=EHEMOHB,
+    estu_hemo_globlancos=EHEMOGB,
+    estu_hemo_plaquetas=EHEMOPLA,
+    estu_hemo_fecha=EHEMOF,
+      ) %>% 
+  select(-c(EFHEPA, EFHEPAF, EFHBILT, EFHFOSA, EFHPROT, EFHALBU, EEHPA, EEHPAF, 
+            EEHTGO, EEHTGP, EMFERR, EMFERRF, EMFSIDE, EMFTRAN, EMFFERRI, 
+            ELIPIDO, ELIPIDOF, ELCOLE, ELTRIG, ELHDL, ELLDL, EPTH, EPTHF, EPTHV, 
+            EHBA1C, EHBA1CF, EHBA1CV)) %>% 
   mutate(
     ZCAIMAE=if_else(ZCAIMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZCAIMAE),
     CAIMAE=if_else(CAIMAE==63, 95, CAIMAE),
@@ -272,6 +284,11 @@ INGRESOS_HD <-
     anio_autorizacion=format(fecha_autorizacion, "%Y")) %>% 
   group_by(CAPACNUM) %>% 
   slice_max(CASEDADA, with_ties = FALSE)
+
+write.csv(
+  quality,
+  "INGRESOS_HD3.csv", 
+  row.names=FALSE)
 
 # INFORMES_IMAES_HD ----
 INFORMES_IMAES_HD <- read_sav("~/Proyecto Tesis/Databases/INFORMES_IMAES_HD.sav") %>% 
