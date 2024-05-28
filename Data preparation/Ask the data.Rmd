@@ -1817,4 +1817,31 @@ borrar <- INGRESOS_HD %>%
 
 n_distinct(borrar$CAPACNUM)
 ```
+# Quiénes están en SESIONES, quiénes en INGRESOS, quienes en los dos
 
+```{r}
+
+sesi <- SESIONES_HD %>% mutate(sesi=1) %>% select(CAPACNUM, sesi, PMD_ANIO)
+ingr <- INGRESOS %>% mutate(ingr=1) %>% select(CAPACNUM, ingr, anio_solicitud)
+
+ambos <- full_join(sesi, ingr, by="CAPACNUM") %>% 
+  mutate(sesi=if_else(is.na(sesi), 0, sesi),
+         ingr=if_else(is.na(ingr), 0, ingr),
+         ambos=if_else(sesi==1 & ingr==1, 1, 0),
+         tipo=case_when(sesi==1 & ingr==1 ~ "ambos",
+                        sesi==1 & ingr==0 ~ "sesi",
+                        sesi==0 & ingr==1 ~ "ingr"))
+
+anios <- ambos %>% group_by(anio_solicitud) %>% 
+  summarise(ambos=mean(ambos, na.rm=T))
+
+summ <- ambos %>% 
+  group_by(CAPACNUM) %>% 
+  summarise(months=n(),
+            tipo=first(tipo)) %>% 
+  group_by(tipo) %>% 
+  summarise(months=mean(months))
+
+summary(ambos)
+
+```
