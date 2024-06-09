@@ -72,8 +72,8 @@ delays <- INGRESOS %>%
   summarise(delays=mean(delays, na.rm = T))
 
 # Quality ----
-QUALITY <- read.csv("QUALITY.csv") %>% 
-  select(-c(depto, id))
+quality <- read.csv("quality.csv") %>% 
+  select(-c(depto, id, tipo_imae))
 
 # Instrumentos
 Zmed <- Logit_INGRESOS %>% group_by(ZCAIMAE, anio_solicitud) %>% 
@@ -149,13 +149,39 @@ X_imae <-
   separate(mes_solicitud, into=c("anio_solicitud", "mes"), remove=F) %>% select(-mes) %>% 
   mutate(CAIMAE=as.factor(CAIMAE), anio_solicitud=as.double(anio_solicitud)) %>% 
   left_join(delays, by=c("ZCAIMAE", "anio_solicitud")) %>% 
-  left_join(QUALITY, by=c("ZCAIMAE", "anio_solicitud"="anio")) %>% 
+  left_join(quality, by=c("ZCAIMAE", "anio_solicitud"="anio")) %>% 
   left_join(Zmed, by=c("ZCAIMAE", "anio_solicitud")) %>% 
   left_join(Zins, by=c("ZCAIMAE", "anio_solicitud")) %>% 
   left_join(pacientes_mensuales, by=c("CAIMAE", "mes_solicitud")) %>% 
   left_join(CONGESTION, by=c("ZCAIMAE", "anio_solicitud")) %>% 
   left_join(INSTRUMENTOS, by=c("ZCAIMAE"="ZPMD_IMAE", "anio_solicitud"="PMD_ANIO")) %>% 
-  select(-c(ID_CAIMAE, tipo_imae2))
+  select(-c(ID_CAIMAE, tipo_imae2)) %>% 
+  mutate(
+    fecha3=as.Date(paste(mes_solicitud, "-01", sep="")),
+    arancel=case_when(
+      fecha3<as.Date("2004-05-01") ~ 7573,
+      as.Date("2004-05-01")<=fecha3 & fecha3<as.Date("2005-03-01") ~ 6384,
+      as.Date("2005-03-01")<=fecha3 & fecha3<as.Date("2006-01-01") ~ 6304,
+      as.Date("2006-01-01")<=fecha3 & fecha3<as.Date("2006-07-01") ~ 5907,
+      as.Date("2006-07-01")<=fecha3 & fecha3<as.Date("2007-01-01") ~ 5852,
+      as.Date("2007-01-01")<=fecha3 & fecha3<as.Date("2007-07-01") ~ 5979,
+      as.Date("2007-07-01")<=fecha3 & fecha3<as.Date("2008-01-01") ~ 5647,
+      as.Date("2008-01-01")<=fecha3 & fecha3<as.Date("2008-07-01") ~ 5612,
+      as.Date("2008-07-01")<=fecha3 & fecha3<as.Date("2009-01-01") ~ 5483,
+      as.Date("2009-01-01")<=fecha3 & fecha3<as.Date("2009-07-01") ~ 6054,
+      as.Date("2009-07-01")<=fecha3 & fecha3<as.Date("2010-01-01") ~ 6103,
+      as.Date("2010-01-01")<=fecha3 & fecha3<as.Date("2010-07-01") ~ 6027,
+      as.Date("2010-07-01")<=fecha3 & fecha3<as.Date("2011-01-01") ~ 6216,
+      as.Date("2011-01-01")<=fecha3 & fecha3<as.Date("2011-07-01") ~ 6230,
+      as.Date("2011-07-01")<=fecha3 & fecha3<as.Date("2012-01-01") ~ 6347,
+      as.Date("2012-01-01")<=fecha3 & fecha3<as.Date("2012-07-01") ~ 6227,
+      as.Date("2012-07-01")<=fecha3 & fecha3<as.Date("2013-07-01") ~ 6442,
+      as.Date("2013-07-01")<=fecha3 & fecha3<as.Date("2014-07-01") ~ 6531,
+      as.Date("2014-07-01")<=fecha3 & fecha3<as.Date("2015-07-01") ~ 6585,
+      as.Date("2015-07-01")<=fecha3 & fecha3<as.Date("2016-07-01") ~ 6522,
+      as.Date("2016-07-01")<=fecha3 & fecha3<as.Date("2018-07-01") ~ 6553,
+      as.Date("2018-07-01")<=fecha3 & fecha3<as.Date("2019-07-01") ~ 6462,
+                      ))
 
 # Logit_INGRESOS ----
 Logit_INGRESOS <- 
