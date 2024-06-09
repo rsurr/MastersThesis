@@ -1845,3 +1845,48 @@ summ <- ambos %>%
 summary(ambos)
 
 ```
+
+
+
+
+```{r}
+Logit_INGRESOS %>% 
+  filter(
+    depto=="01",
+         ZCAIMAE!="SENNIAD HEMO",
+         n_centro>1) %>% 
+  group_by(tipo_imae, fecha3) %>% 
+  summarize(n_centro=mean(n_centro, na.rm = T),
+            cap_op=mean(cap_op, na.rm = T)) %>% 
+  pivot_longer(cols=c("cap_op", "n_centro"), values_to = "values", names_to = "indicator") %>% 
+ggplot(aes(x=fecha3, y=values, color=indicator)) + geom_line() + facet_wrap( ~ tipo_imae)
+
+MENSUALES_HD  %>% 
+  left_join(PACIENTES, by="CAPACNUM") %>%
+  left_join(tipo_imae, by=c("ZPMD_IMAE"="ZCAIMAE")) %>%
+  mutate(tipo_imae2=case_when(tipo_imae=="INDEPENDIENTE" ~ "Indep",
+                              tipo_imae=="PRIVADO" ~ "Priv Ins",
+                              tipo_imae=="PUBLICO" ~ "Pub Ins")) %>% 
+  left_join(IMAE_num, by=c("ZPMD_IMAE"="ZCAIMAE"))  %>% 
+  unite("mes_mensual", c(PMD_ANIO,PMD_MES), sep="-", remove=FALSE) %>% 
+  mutate(fecha_mensual = as.Date(paste(mes_mensual, "-01", sep="")),
+          edad = as.numeric(difftime(fecha_mensual, PAC_FEC_NAC, 
+                               units = "days") / 365.25)) %>% 
+  group_by(fecha_mensual) %>% 
+  filter(ZPMD_IMAE!="SENNIAD HEMO") %>% 
+  summarize(edad=mean(edad, na.rm = T),
+           ) %>% 
+  filter(fecha_mensual>"2004-03-01") %>% 
+#%>% pivot_longer(cols=c("cap_op", "edad"), values_to = "values", names_to = "indicator") %>% 
+ggplot(aes(x=fecha_mensual, y=edad)) + geom_line() + 
+  theme(
+        legend.position = "bottom",
+    panel.grid.minor = element_blank(),  # Remove minor gridlines
+    strip.background = element_blank()  # Remove background from facet titles
+  ) +
+  scale_color_viridis_d(begin=0.5, end=0.8) + 
+  labs(title="Edad de pacientes en hemodiálisis 2004-2016",
+       y="Edad promedio", x="Año") 
+
+```
+
