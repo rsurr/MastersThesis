@@ -21,7 +21,7 @@ PACIENTES <-
 #                        is.na(dife) ~ NA))
 
 MENSUALES_HD2 <- MENSUALES_HD %>% 
-  right_join(INGRESOS_HD, by="CAPACNUM") %>% 
+  right_join(INGRESOS, by="CAPACNUM") %>% 
   left_join(PACIENTES, by="CAPACNUM") %>%
   #left_join(dist, by=c("CAPACNUM", "PMD_IMAE"="num_choice")) %>%
   #left_join(dife_peso, by=c("PMD_ANIO", "PMD_MES", "CAPACNUM")) %>% 
@@ -40,9 +40,12 @@ MENSUALES_HD2 <- MENSUALES_HD %>%
   filter(ZCAIMAE!="SENNIAD HEMO",
          ZCAIMAE!="IMAE A CONFIRMAR") %>% 
   mutate(
+    ZCAIMAE=if_else(ZCAIMAE=="CEDINA", "CE.DI.SA.", ZCAIMAE),
+    ZCAIMAE=if_else(ZCAIMAE=="IMPASA", "SMI - SERVICIO MEDICO INTEGRAL", ZCAIMAE),
+    ZCAIMAE=if_else(ZCAIMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZCAIMAE),
+
     edad = as.numeric(difftime(fecha_mensual, PAC_FEC_NAC, 
                                units = "days") / 365.25),
-    ZCAIMAE=if_else(ZCAIMAE=="HOSPITAL ITALIANO", "UNIVERSAL", ZCAIMAE),
     #Date = as.Date(paste(fecha, "-01", sep="")),
     #mes=format(Date, "%Y-%m"),
     DDIAB=case_when(
@@ -257,7 +260,7 @@ get_all_predictions <- function(model, data) {
 
 INGRESOS_HD2 <- read_csv("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/INGRESOS_HD2.csv")
 
-tipo_imae <- INGRESOS_HD %>% ungroup() %>% select("ZCAIMAE", "tipo_imae") %>% unique()
+tipo_imae <- INGRESOS %>% ungroup() %>% select("ZCAIMAE", "tipo_imae") %>% unique()
 IMAE_num <- read_csv("C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/IMAE_num.csv") %>% filter(ZCAIMAE!="HOSPITAL ITALIANO")
 
 pred_urea <- get_all_predictions(m_urea, MENSUALES_HD2) %>% rename(urea=Prediction)
@@ -281,21 +284,21 @@ quality <- left_join(pred_URR, pred_surv, by=c("IMAE", "anio")) %>%
   left_join(pred_ktv, by=c("IMAE", "anio")) %>% 
   #left_join(pred_comp_dialisis, by=c("IMAE", "anio")) %>%
   left_join(tipo_imae, by=c("IMAE"="ZCAIMAE")) %>%
-  mutate(tipo_imae2=case_when(tipo_choice=="INDEPENDIENTE" ~ "Indep",
-                              tipo_choice=="PRIVADO" ~ "Priv Ins",
-                              tipo_choice=="PUBLICO" ~ "Pub Ins")) %>% 
+  mutate(tipo_imae2=case_when(tipo_imae=="INDEPENDIENTE" ~ "Indep",
+                              tipo_imae=="PRIVADO" ~ "Priv Ins",
+                              tipo_imae=="PUBLICO" ~ "Pub Ins")) %>% 
   left_join(IMAE_num, by=c("IMAE"="ZCAIMAE")) %>% 
-  rename(ZCAIMAE=IMAE) %>% mutate(anio=as.double(as.character(anio))) %>% 
-  select(-c(choice))
+  rename(ZCAIMAE=IMAE) %>% 
+  mutate(anio=as.double(as.character(anio)),
+         id=as.character(id))
 
 
 write.csv(
   quality,
-  "C:/Users/julie/OneDrive/Documentos/Proyecto Tesis/MastersThesis/quality.csv", 
+  "quality.csv", 
   row.names=FALSE)
 
-quality <- read_csv("quality.csv") %>% 
-  mutate()
+quality <- read_csv("quality.csv")
 
 non_adj_quality <- MENSUALES_HD2 %>% 
   group_by(ZCAIMAE, anio) %>% 
