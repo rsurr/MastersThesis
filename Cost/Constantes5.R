@@ -33,7 +33,7 @@ variableMC <- function(x) {
   for (i in 1:length(x)) {
     exp_terms <- exp(b_constant + b_URR * x)
     denominator <- sum(exp_terms)
-    y[i] <- (P - b_a0 - b_a2 * x[i] - b_a3 * indep) * dSdQ - b_a2 * exp_terms[i] / (1 + denominator)
+    y[i] <- (P - b_a0 - b_a2 * x[i] - b_a3 * indep[i]) * dSdQ[i] - b_a2 * exp_terms[i] / (1 + denominator)
   }
   
   return(y)
