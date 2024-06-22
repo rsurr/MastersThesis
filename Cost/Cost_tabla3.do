@@ -22,8 +22,10 @@ gen b_publico = 0
 	cap drop share
 	qui gen share=eV/(1+sum_eV)	
 	
+/// Compute partial S partial Q
+gen dSdQ = b_URR*share*(1-share)
 
-collapse (mean) p_* b_* share arancel ///
+collapse (mean) p_* b_* share arancel dSdQ ///
  inst medimae distk ktv turnos_op n delta total URR hemo ///
 n_centro n_trans ses_centro ses_trans s_obs privado indep publico s iZCAIMAE Zins Zmed ///
 hab_op cong_op cap_op (first) chain, by(ZCAIMAE anio_solicitud)
@@ -66,9 +68,6 @@ gen mean_hab_op = (total_hab_op - hab_op)/(count_hab_op - 1)
 egen total_turnos_op = total(turnos_op), by(anio_solicitud)
 egen count_turnos_op = count(turnos_op), by(anio_solicitud)
 gen mean_turnos_op = (total_turnos_op - turnos_op)/(count_turnos_op - 1)
-
-/// Compute partial S partial Q
-gen dSdQ = b_URR*share*(1-share)
 
 
 /// GMM BASE
@@ -185,18 +184,18 @@ estadd scalar mean_markup = `r(mean)': GMM_CHAINS
 /// GMM CON QUALITY A LA ALPHA
 eststo GMM_QUALITY: gmm ( (P*dSdQ - ({a2})*share)/dSdQ - ///
 {a0} - {a2}*URR - n_centro^{a8}),	///
-instruments(p_diab p_devp p_dcisq p_edad50 p_edad60 p_edad70 p_edad80)
+instruments(p_diab p_devp p_dcisq)
 
 cap drop b_* 
 cap drop cost
 cap drop markup
 
-qui foreach x in a0: a2: a3: {
+qui foreach x in a0: a2: a8: {
 cap drop b_`x'_0
 gen b_`x'_0=_b[`x']
 }
  
-gen cost= b_a0 + b_a2*URR + n_centro^b_a3
+gen cost= b_a0 + b_a2*URR + n_centro^b_a8
 
 sum cost
 
