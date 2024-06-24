@@ -83,6 +83,17 @@ save "C:\Users\julie\OneDrive\Documentos\Proyecto Tesis\MastersThesis\2loops_2.d
 
 use "C:\Users\julie\OneDrive\Documentos\Proyecto Tesis\MastersThesis\2loops_2.dta", replace
 
+bysort ZCAIMAE anio_solicitud: egen delta0=mean(delta)
+
+*Tiene imae
+constraint 1 delta0 = 1
+eststo uij_tiene: clogit choice inst medimae l_distk delta0 if tiene_imae==1, group(CAPACNUM) constraint(1)
+
+*No tiene imae
+constraint 1 delta0 = 1
+eststo uij_notiene: clogit choice medimae l_distk delta0 if tiene_imae==0, group(CAPACNUM) constraint(1)
+
+
 bysort ZCAIMAE anio_solicitud: egen n_choice=sum(choice)
 qui bysort anio_solicitud: egen total_obs=sum(choice)
 qui bysort ZCAIMAE anio_solicitud: egen n_obs=sum(choice)
@@ -149,6 +160,15 @@ estadd scalar rkf1 = `e(rkf)': IV3
 	
 esttab uij_tiene uij_notiene IV1 IV2 IV3 using "C:\Users\julie\OneDrive\Documentos\Proyecto Tesis\MastersThesis\IV\tabla_demanda.tex", ///
     cells(b(star fmt(3)) se(par fmt(3))) order(inst medimae l_distk URR turnos_op hab_op n_centro n_obs s_obs2) ///
+    label mtitles(CL CL 2SLS 2SLS 2SLS) alignment(c|cccc) ///
+    style(tex) title("Demand estimates") replace ///
+	stats(N cdf1 rkf1, labels("Observations" "CD Wald F" "KP Wald rk F") fmt(%9.0fc %9.3fc %9.3fc)) ///
+	eqlabels(" " " ") booktab
+	
+/// ESTTAB
+	
+esttab uij_tiene uij_notiene IV1 using "C:\Users\julie\OneDrive\Documentos\Proyecto Tesis\MastersThesis\IV\tabla_demanda_simple.tex", ///
+    cells(b(star fmt(3)) se(par fmt(3))) order(inst medimae l_distk URR turnos_op hab_op n_centro) drop(delta0) ///
     label mtitles(CL CL 2SLS 2SLS 2SLS) alignment(c|cccc) ///
     style(tex) title("Demand estimates") replace ///
 	stats(N cdf1 rkf1, labels("Observations" "CD Wald F" "KP Wald rk F") fmt(%9.0fc %9.3fc %9.3fc)) ///
