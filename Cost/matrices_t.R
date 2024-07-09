@@ -90,7 +90,7 @@ P <- as.matrix(matrices$P)
 P <- P[aux]
 
 # Z
-Z <- matrices %>% select("p_diab", "p_devp", "p_dcisq") %>% 
+Z <- matrices %>% select(starts_with("p_")) %>% 
   data.matrix()
 Z <- Z[aux,]
 
@@ -98,33 +98,124 @@ Z <- Z[aux,]
 n_centro <- as.matrix(matrices$n_centro)
 n_centro <- n_centro[aux]
 
-x <- cbind(Z, P)
-head(x)
+# n_centro
+indep <- as.matrix(matrices$indep)
+indep <- indep[aux]
+
+x <- cbind(Z, P, Q, S, omega_1, indep, n_centro)
+
+# Function to prepend "d" to column names starting with a number
+prepend_d_to_numeric_columns <- function(df) {
+  colnames(df) <- sapply(colnames(df), function(name) {
+    if (grepl("^[0-9]", name)) {
+      paste0("d_", name)
+    } else {
+      name
+    }
+  })
+  return(df)
+}
+
+# Apply the function to the data frame
+x <- prepend_d_to_numeric_columns(x)
+
+# Print the updated data frame
+print(x)
+
+
+#############################3
+x_data <- x %>% as.data.frame()
+haven::write_dta(x_data, path = "x_data.dta")
 
 g1 <- function(tet, x) {
   Z_1 <- x[,1]
   Z_2 <- x[,2]
   Z_3 <- x[,3]
+  P   <- x[,4]
   
-  f_1 <- Z_1 * (P - tet[1] - tet[2] * Q - omega_1 %*% (tet[2] * diag(1, n_aux) %*% S))
-  f_2 <- Z_2 * (P - tet[1] - tet[2] * Q - omega_1 %*% (tet[2] * diag(1, n_aux) %*% S))
-  f_3 <- Z_3 * (P - tet[1] - tet[2] * Q - omega_1 %*% (tet[2] * diag(1, n_aux) %*% S))
+  V <- (P - tet[1] - tet[2] * Q - omega_1 %*% (tet[2] * multiproduct %*% S))
   
-  f <- cbind(f_1, 
+  f_1 <- t(Z_1) %*% V
+  f_2 <- t(Z_2) %*% V
+  f_3 <- t(Z_3) %*% V
+
+  f <- cbind(
+             f_1, 
              f_2, 
-             f_3)
+             f_3
+             )
   
   return(f)
 }
 
-print(res <- gmm(g1,x, c(3000, 2000)))
+t(Z_1) %*% (P - omega_1 %*% multiproduct %*% S)
+g1(c(0,0),x)
+
+#print(res <- gmm(g1, x, c(3000, 2000), prewhite = FALSE))
+#summary(res)
+
+g1 <- function(tet, x) {
+  Z_1 <- x[,1]
+  Z_2 <- x[,2]
+  Z_3 <- x[,3]
+  P   <- x[,4]
+
+  V <- (P - tet[1] - tet[2] * Q - tet[3] * indep -
+          omega_1 %*% (tet[2] * diag(1, n_aux) %*% S))
+  
+  f_1 <- Z_1 * V
+  f_2 <- Z_2 * V
+  f_3 <- Z_3 * V
+
+  f <- cbind(
+    f_1, 
+    f_2, 
+    f_3
+  )
+  
+  return(f)
+}
+
+
+print(res <- gmm(g1, x, c(3000, 2000, 1), prewhite = FALSE))
 summary(res)
+
+
+g1 <- function(tet, x) {
+  Z_1 <- x[,1]
+  Z_2 <- x[,2]
+  Z_3 <- x[,3]
+  P   <- x[,4]
+  
+  V <- (P - tet[1] - tet[2] * Q -
+          omega_1 %*% (tet[2] * diag(1, n_aux) %*% S))
+  
+  f_1 <- Z_1 * V
+  f_2 <- Z_2 * V
+  f_3 <- Z_3 * V
+  f_4 <- P   * V
+  
+  f <- cbind(
+    f_1, 
+    f_2, 
+    f_3,
+    f_4
+  )
+  
+  return(f)
+}
+
+
+print(res <- gmm(g1, x, c(3000, 2000), prewhite = FALSE))
+summary(res)
+
+3.5989e-02*0.9
 
 g2 <- function(tet, x) {
   Z_1 <- x[,1]
   Z_2 <- x[,2]
   Z_3 <- x[,3]
-  P <- x[,4]
+  P_Z <- x[,4]
   
   f_1 <- Z_1 * (P - tet[1] - tet[2] * Q - n_centro ^ tet[3] - 
                   omega_1 %*% (tet[2] * diag(1, n_aux) %*% S))
@@ -132,17 +223,108 @@ g2 <- function(tet, x) {
                   omega_1 %*% (tet[2] * diag(1, n_aux) %*% S))
   f_3 <- Z_3 * (P - tet[1] - tet[2] * Q - n_centro ^ tet[3] - 
                   omega_1 %*% (tet[2] * diag(1, n_aux) %*% S))
-  f_4 <- P   * (P - tet[1] - tet[2] * Q - n_centro ^ tet[3] - 
+  f_4 <- P_Z * (P - tet[1] - tet[2] * Q - n_centro ^ tet[3] - 
                   omega_1 %*% (tet[2] * diag(1, n_aux) %*% S))
   
-  f <- cbind(f_1, 
-             f_2, 
-             f_3,
-             f_4)
+  f <- cbind(
+    f_1, 
+    f_2, 
+    f_3,
+    f_4
+    )
   
   return(f)
 }
 
 print(res2 <- gmm(g2, x, c(3000, 2000, 1)))
 summary(res2)
+
+g3 <- function(tet, x) {
+  P   <- x[,11]
+  Q   <- x[,12]
+  
+  f_1 <- Q   * (P - tet[1] - tet[2] * Q - omega_1 %*% (tet[2] * multiproduct %*% S))
+  f_2 <- P   * (P - tet[1] - tet[2] * Q - omega_1 %*% (tet[2] * multiproduct %*% S))
+  
+  f <- cbind(
+    f_1, 
+    f_2
+  )
+  
+  return(f)
+}
+
+print(res3 <- gmm(g3,x, c(3000, 2000)))
+summary(res3)
+
+escero <- g3(c(3.3546e+03, 3.5989e-02), x) %>% as.data.frame()
+
+summary(escero)
+
+x <- cbind(Z, P, Q, S, omega_1, n_centro)
+
+g1 <- function(tet, x) {
+  Z_1 <- x[,1]
+  Z_2 <- x[,2]
+  Z_3 <- x[,3]
+  P   <- x[,4]
+  Q   <- x[,12]
+  S   <- x[,13]
+  O   <- x[,14:223]
+
+  V <- (P - tet[1] - tet[2] * Q - O %*% (tet[2] * diag(1, n_aux) %*% S))
+  
+  f_1 <- Z_1 * V
+  f_2 <- Z_2 * V
+  f_3 <- Z_3 * V
+  f_4 <- P   * V
+  
+  f <- cbind(
+    f_1, 
+    f_2, 
+    f_3,
+    f_4
+  )
+  
+  return(f)
+}
+
+print(res <- gmm(g1, x, c(3000, 2000)))
+summary(res)
+
+
+g1 <- function(tet, x) {
+  Z_1 <- x[,1]
+  Z_2 <- x[,2]
+  Z_3 <- x[,3]
+  P   <- x[,4]
+  Q   <- x[,12]
+  S   <- x[,13]
+  O   <- x[,14:223]
+  N   <- x[,224]
+  
+  V <- (P - tet[1] - tet[2] * Q * N - O %*% (tet[2] * N * diag(1, n_aux) %*% S))
+  
+  f_1 <- Z_1 * V
+  f_2 <- Z_2 * V
+  f_3 <- Z_3 * V
+  f_4 <- P   * V
+  
+  f <- cbind(
+    f_1, 
+    f_2, 
+    f_3,
+    f_4
+  )
+  
+  return(f)
+}
+
+print(res <- gmm(g1, x, c(3000, 2000)))
+summary(res)
+
+
+#############################3
+x_data <- x %>% as.data.frame()
+haven::write_dta(x_data, path = "x_data.dta")
 
