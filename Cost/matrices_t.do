@@ -61,7 +61,34 @@ replace diaverum=1 if chain=="DIAVERUM"
 gen ceneu=0
 replace ceneu=1 if chain=="CENEU"
 
-collapse (mean) P share s_obs2 dSdQ_* (first) chain num_choice ID_CAIMAE p_diab p_devp p_dcisq URR n_centro , by(ZCAIMAE anio_solicitud)
+collapse (mean) P share s_obs2 dSdQ_* (first) chain num_choice ID_CAIMAE p_* URR n_centro indep publico, by(ZCAIMAE anio_solicitud)
 
 export delimited using "C:\Users\julie\OneDrive\Documentos\Proyecto Tesis\MastersThesis\Cost\matrices_t.csv", replace
+
+/// GMM BASE
+eststo GMM_BASE: gmm ( P*dSdQ - ({a2})*share)/dSdQ - ///
+{a0} - {a2}*URR),	///
+instruments(mean_turnos_op mean_hab_op)
+
+drop b_* 
+drop cost
+drop markup
+
+qui foreach x in a0: a2:{
+cap drop b_`x'_0
+gen b_`x'_0=_b[`x']
+}
+ 
+gen cost= b_a0 + b_a2*URR
+
+sum cost
+
+estadd scalar mean_cost = `r(mean)': GMM_BASE
+
+gen markup=P/cost
+
+sum markup
+
+estadd scalar mean_markup = `r(mean)': GMM_BASE
+
 
