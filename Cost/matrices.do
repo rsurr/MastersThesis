@@ -58,7 +58,7 @@ replace diaverum=1 if chain=="DIAVERUM"
 gen ceneu=0
 replace ceneu=1 if chain=="CENEU"
 
-collapse (mean) P share s_obs2 dSdQ_* URR (first) chain ID_CAIMAE, by(ZCAIMAE anio_solicitud)
+collapse (mean) P share s_obs2 dSdQ_* URR (first) chain ID_CAIMAE p_diab p_devp p_dcisq, by(ZCAIMAE anio_solicitud)
 
 export delimited using "C:\Users\julie\OneDrive\Documentos\Proyecto Tesis\MastersThesis\Cost\matrices.csv", replace
 
