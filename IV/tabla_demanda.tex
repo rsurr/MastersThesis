@@ -1,0 +1,37 @@
+\begin{table}[htbp]\centering
+\def\sym#1{\ifmmode^{#1}\else\(^{#1}\)\fi}
+\caption{Demand estimates}
+\begin{tabular}{l*{5}{c|cccc}}
+\toprule
+                    &\multicolumn{1}{c}{(1)}&\multicolumn{1}{c}{(2)}&\multicolumn{1}{c}{(3)}&\multicolumn{1}{c}{(4)}&\multicolumn{1}{c}{(5)}\\
+                    &\multicolumn{1}{c}{CL}&\multicolumn{1}{c}{CL}&\multicolumn{1}{c}{2SLS}&\multicolumn{1}{c}{2SLS}&\multicolumn{1}{c}{2SLS}\\
+                    &        b/se         &        b/se         &        b/se         &        b/se         &        b/se         \\
+\midrule
+                    &                     &                     &                     &                     &                     \\
+inst                &       2.409\sym{***}&                     &                     &                     &                     \\
+                    &     (0.050)         &                     &                     &                     &                     \\
+medimae             &       1.373\sym{***}&       2.465\sym{***}&                     &                     &                     \\
+                    &     (0.069)         &     (0.135)         &                     &                     &                     \\
+l\_distk             &      -1.199\sym{***}&      -1.165\sym{***}&                     &                     &                     \\
+                    &     (0.050)         &     (0.117)         &                     &                     &                     \\
+(mean) URR          &                     &                     &       2.520\sym{***}&       0.084         &      -0.014         \\
+                    &                     &                     &     (0.720)         &     (1.163)         &     (1.132)         \\
+(mean) turnos\_op    &                     &                     &       1.981\sym{***}&       1.737\sym{***}&       1.821\sym{***}\\
+                    &                     &                     &     (0.158)         &     (0.145)         &     (0.153)         \\
+(mean) hab\_op       &                     &                     &       0.595\sym{***}&       0.624\sym{***}&       0.585\sym{***}\\
+                    &                     &                     &     (0.077)         &     (0.110)         &     (0.101)         \\
+(mean) n\_centro     &                     &                     &      -0.131\sym{***}&                     &                     \\
+                    &                     &                     &     (0.016)         &                     &                     \\
+(mean) n\_obs        &                     &                     &                     &      -0.402\sym{***}&                     \\
+                    &                     &                     &                     &     (0.080)         &                     \\
+(mean) s\_obs2       &                     &                     &                     &                     &     -91.272\sym{***}\\
+                    &                     &                     &                     &                     &    (17.972)         \\
+delta0              &       1.000         &       1.000         &                     &                     &                     \\
+                    &         (.)         &         (.)         &                     &                     &                     \\
+\midrule
+Observations        &      42,950         &       6,701         &         206         &         206         &         206         \\
+CD Wald F           &                     &                     &      71.732         &      29.599         &      33.717         \\
+KP Wald rk F        &                     &                     &      81.246         &      35.989         &      37.653         \\
+\bottomrule
+\end{tabular}
+\end{table}
